@@ -1,25 +1,21 @@
 # FlowSight ESP32 project log
 
-## Implementation strategy
+## Scope
 
-Use a separate firmware repository for the connected CYD, preserving the existing FlowSight desktop source and its uncommitted work. Build a native offline timer with a USB control protocol rather than assuming the desktop application has an available control API.
+The owner requested replacing Marauder with a FlowSight touchscreen companion, publishing its repository, and fully integrating its timer, controls and language with the installed desktop app. They explicitly authorized desktop changes and a FlowSight.AI release.
 
-Hardware identification: CH340 USB serial, ESP32-D0WD-V3 revision 3.1, 4 MB flash. Read-only inspection of the previous application identified `Marauder vCYD`. The target configuration is ESP32-2432S028R with ILI9341 and XPT2046 on separate SPI buses. A 921600-baud read proved unreliable; subsequent device operations use 230400 baud for flashing and 115200 for the application protocol.
+## Hardware correction
 
-The interface inherits the desktop dark palette and uses native Manrope subsets with Spanish glyphs. UI actions activate on release, cancel when dragged outside a target, and distinguish reset confirmation from the current running session. A nonblocking four-point affine touch calibration validates the fourth point before saving. BOOT provides an independent fallback control.
+The connected COM3 unit identifies as ESP32-D0WD-V3 with 4 MB flash. Its case says CS-32 N4XX and it has one USB-C connector. The initial GPIO21 CYD profile produced a dark screen. The ESP32-2432S024R-compatible GPIO27 profile with ILI9341_2 and shared XPT2046 SPI illuminated it. Landscape offset rotation 6 corrected mirroring. The owner confirmed readable text, then completed four-point calibration and confirmed correct touch response. Preserve that NVS calibration during updates.
 
-Timer decisions: use monotonic milliseconds with wrap-safe subtraction; preserve remaining time across pauses; count completion once; restore a checkpoint in paused state after power loss; reject duration/mode changes that would silently discard an active block. Persist running checkpoints every 30 seconds to limit flash writes.
+## Integration
 
-Hardware correction: a full 320 × 240 RGB565 sprite could not obtain a sufficiently large contiguous allocation. The final renderer uses one 320 × 120 RGB565 buffer and draws the top and bottom strips sequentially, preserving color depth and antialiased typography. USB screenshots re-render that same frozen state on the ESP32 through those buffers. The application then started successfully and passed the recorded behavioral checks.
+The initial autonomous countdown was superseded by protocol 2. Firmware 0.2.0 takes the app's clock verbatim and sends explicit control requests. It freezes on disconnect and stores only local language, brightness and calibration preferences. No Wi-Fi is required.
 
-## Deliverable paths
+Desktop work is isolated in `desktop-source`, branch `feat/esp32-companion`, based on the released 6.1.0 tree. The original Desktop checkout has pre-existing changes and was not edited. FlowSight 6.1.1 adds a Windows serial worker and renderer event transport, reusing existing monitoring, Pomodoro, calendar and localization behavior.
 
-- `src/`, `include/`, `platformio.ini`: editable firmware.
-- `tools/device.py`: USB control and live framebuffer capture.
-- `tools/verify_device.py`, `test/timer_test.cpp`: behavioral verification.
-- `assets/fonts/`: source font and its license.
-- `firmware/FlowSight-ESP32.bin`: generated merged installation image, excluded from Git and distributed as a release asset.
-- `artifacts/device-screen.png`: current device framebuffer evidence.
-- `docs/VERIFICATION.md`: actual verification outcomes and limitations.
+Desktop source commit: `1a29553`. PR: https://github.com/Mancasvel/FlowSight.AI/pull/37 . Compatible release build: https://github.com/Mancasvel/FlowSight.AI/actions/runs/38171382104 . Release remains a draft while installers and end-to-end verification are pending.
 
-Development dependencies, partial firmware reads, temporary references and build caches are local-only and are removed after the final firmware is verified and published.
+## Verification and delivery
+
+See `docs/VERIFICATION.md` for evidence. Renderer tests, Rust unit tests and the frontend production build passed. Native lint, the release build and final device verification are in progress. Keep current source, final firmware and minimal evidence; remove temporary build caches after successful delivery.

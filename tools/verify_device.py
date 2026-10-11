@@ -1,4 +1,8 @@
-"""Exercise a freshly installed device. Resets its timer and test session count."""
+"""Hardware protocol checks with an explicit test host. Quit FlowSight first.
+
+These fixtures verify the ESP32 transport and rendering; they do not verify a
+running desktop app or the physical touch sensor. No desktop tracking is changed.
+"""
 import argparse
 import json
 from pathlib import Path
@@ -7,109 +11,94 @@ from device import Device
 
 
 def main():
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--port")
-    p.add_argument("--fresh-device", action="store_true", required=True,
-                   help="Acknowledge that this test resets the timer and session count.")
-    p.add_argument("--output", type=Path, default=Path(".local/device-verification.json"))
-    args = p.parse_args()
-    d = Device(args.port)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--port')
+    parser.add_argument('--output', type=Path, default=Path('.local/device-verification.json'))
+    parser.add_argument('--capture-dir', type=Path)
+    args = parser.parse_args()
+    device = Device(args.port)
     checks = []
+    state = dict(language='es', mode='normal', mode_label='Normal', kind='Registrado hoy',
+                 clock='01:47:22', status='Listo', phase='ready', total_seconds=6442,
+                 goal_seconds=21600, goal_label='Objetivo diario', goal_value='6 horas',
+                 context='Calendario conectado', primary_action='start', primary_label='Iniciar registro',
+                 primary_enabled=True, stop_enabled=False, mode_enabled=True, busy=False)
 
     def check(condition, name):
         if not condition:
             raise AssertionError(name)
         checks.append(name)
-        print("PASS: " + name, flush=True)
+        print('PASS: ' + name, flush=True)
 
-    def rejects(command, expected, **params):
+    def rejects(cmd, error, **kwargs):
         try:
-            d.request(command, **params)
-        except RuntimeError as error:
-            check(str(error) == expected, command + " rejects " + expected)
+            device.request(cmd, **kwargs)
+        except RuntimeError as exc:
+            check(str(exc) == error, f'{cmd}: {error}')
         else:
-            raise AssertionError(command + " unexpectedly accepted")
+            raise AssertionError(f'{cmd} should be rejected')
+
+    def sync(**kwargs):
+        state.update(kwargs)
+        device.request('sync', state=state)
 
     try:
-        d.request("reset")
-        d.request("mode", value="focus")
-        d.request("duration", minutes=1)
-        d.request("clear_sessions", confirm=True)
-        rejects("duration", "invalid_duration", minutes=0)
-        rejects("duration", "invalid_duration", minutes=181)
-        rejects("resume", "not_paused")
-        started = d.request("start")
-        time.sleep(1.25)
-        running = d.request("status")
-        check(started["phase"] == running["phase"] == "running" and
-              1000 <= started["remaining_ms"] - running["remaining_ms"] <= 1800,
-              "wall-clock countdown")
-        paused = d.request("pause")
-        time.sleep(1.25)
-        check(d.request("status")["remaining_ms"] == paused["remaining_ms"], "pause freezes time")
-        d.capture(Path("artifacts/device-paused.png"))
-        rejects("duration", "session_active", minutes=25)
-        rejects("mode", "session_active", value="break")
-        d.request("resume")
-        time.sleep(0.5)
-        check(d.request("status")["remaining_ms"] < paused["remaining_ms"], "resume continues remaining time")
-        confirmation = d.request("tap", x=260, y=200)
-        check(confirmation["view"] == "confirm" and confirmation["phase"] == "running", "reset asks before discarding time")
-        d.capture(Path("artifacts/device-confirm.png"))
-        cancelled = d.request("tap", x=70, y=200)
-        check(cancelled["view"] == "timer" and cancelled["phase"] == "running", "cancel preserves session")
-        d.request("tap", x=260, y=200)
-        reset = d.request("tap", x=240, y=200)
-        check(reset["phase"] == "idle" and reset["seconds"] == 60, "confirmed reset")
-        d.request("tap", x=270, y=23)
-        plus = d.request("tap", x=276, y=129)
-        check(plus["focus_minutes"] == 6, "settings +5 touch target")
-        minus = d.request("tap", x=40, y=129)
-        check(minus["focus_minutes"] == 1, "settings -5 touch target")
-        d.request("home")
-        d.request("start")
-        beginning = time.monotonic()
-        while time.monotonic() - beginning < 63:
-            time.sleep(1)
-            state = d.request("status")
-            if state["phase"] == "complete":
-                break
-        elapsed = time.monotonic() - beginning
-        check(state["phase"] == "complete" and state["seconds"] == 0 and
-              state["completed_sessions"] == 1 and 59 <= elapsed < 63,
-              "real one-minute expiry and single completion count")
-        time.sleep(1)
-        check(d.request("status")["completed_sessions"] == 1, "completion does not count twice")
-        rest = d.request("tap", x=100, y=200)
-        check(rest["mode"] == "break" and rest["phase"] == "running", "completed-session break action")
-        d.request("reset")
-        d.request("duration", minutes=5)
-        d.request("mode", value="focus")
-        d.request("duration", minutes=25)
-        d.request("clear_sessions", confirm=True)
-        d.request("start")
-        time.sleep(0.25)
-        checkpoint = d.request("pause")
-        d.serial.rts = True
+        device.request('home')
+        status = device.request('status')
+        check(status['protocol'] == 2 and status['version'] == '0.2.0', 'compatible firmware identity')
+        sync()
+        status = device.request('status')
+        check(status['clock'] == '01:47:22' and status['goal_seconds'] == 21600, 'app time and daily goal mirrored exactly')
+        check(status['language'] == 'es' and status['primary_action'] == 'start', 'Spanish app state received')
+        if args.capture_dir:
+            device.capture(args.capture_dir / 'device-screen.png')
+        device.events.clear()
+        device.request('tap', x=105, y=213)
+        controls = [event for event in device.events if event.get('event') == 'control']
+        check(len(controls) == 1 and controls[0]['action'] == 'start', 'button sends one explicit start request')
+        status = device.request('status')
+        check(status['phase'] == 'ready' and status['clock'] == '01:47:22', 'button does not optimistically start a device timer')
+        rejects('tap', 'no_button', x=105, y=213)
+        device.serial.write((json.dumps(dict(cmd='ack', id=controls[0]['id'], ok=True))+'\n').encode())
+        sync(phase='running', status='En directo', primary_action='pause', primary_label='Pausar registro', stop_enabled=True)
+        device.request('tap', x=105, y=213)
+        controls = [event for event in device.events if event.get('event') == 'control']
+        check(controls[-1]['action'] == 'pause', 'app state changes the physical action to pause')
+        device.serial.write((json.dumps(dict(cmd='ack', id=controls[-1]['id'], ok=True))+'\n').encode())
+        sync(language='en', kind='Recorded today', status='Paused', phase='paused', goal_label='Daily goal',
+             goal_value='6 hours', context='Calendar connected', primary_action='resume', primary_label='Resume tracking')
+        check(device.request('status')['language'] == 'en', 'language changes without reflashing')
+        device.request('tap', x=265, y=25)
+        if args.capture_dir:
+            device.capture(args.capture_dir / 'settings-en.png')
+        device.request('home')
+        sync(mode='pomodoro', mode_label='Pomodoro', clock='04:59', kind='Break', phase='break',
+             primary_action='end_break', primary_label='End break')
+        check(device.request('status')['clock'] == '04:59', 'Pomodoro clock comes from the host')
+        if args.capture_dir:
+            device.capture(args.capture_dir / 'pomodoro-en.png')
+        rejects('sync', 'invalid_snapshot', state={'clock': '99:99'})
+        rejects('reset', 'unknown_command')
+        # An oversized line is discarded as a whole, including any JSON tail.
+        device.serial.write(b'x'*4200 + b'{"cmd":"home"}\n')
         time.sleep(0.15)
-        d.serial.rts = False
-        time.sleep(2.5)
-        restored = d.request("status")
-        check(restored["phase"] == "paused" and restored["remaining_ms"] == checkpoint["remaining_ms"],
-              "reset restores exact paused checkpoint from flash")
-        d.request("reset")
-        d.request("tap", x=270, y=23)
-        d.capture(Path("artifacts/device-settings.png"))
-        d.request("home")
-        d.capture(Path("artifacts/device-screen.png"))
-        final = d.request("status")
+        check(device.request('status')['clock'] == '04:59', 'oversized input does not corrupt the snapshot')
+        time.sleep(5.1)
+        status = device.request('status')
+        check(not status['connected'] and not status['primary_enabled'] and status['clock'] == '04:59',
+              'disconnect freezes last clock and disables controls')
+        rejects('tap', 'no_button', x=105, y=213)
+        if args.capture_dir:
+            device.capture(args.capture_dir / 'offline-en.png')
+        sync(language='es', mode='normal', mode_label='Normal', clock='01:47:22', kind='Registrado hoy',
+             status='Listo', phase='ready', goal_label='Objetivo diario', goal_value='6 horas',
+             context='Calendario conectado', primary_action='start', primary_label='Iniciar registro', stop_enabled=False)
+        check(device.request('status')['connected'], 'fresh snapshot reconnects automatically')
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps({"checks": checks, "physical_touch_tested": False,
-                                         "final_state": final}, indent=2))
-        print("PASS: " + str(len(checks)) + " checks. Physical touch alignment needs a person.")
+        args.output.write_text(json.dumps({'fixture_host': True, 'checks': checks, 'passed': len(checks)}, indent=2)+'\n')
     finally:
-        d.close()
+        device.close()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

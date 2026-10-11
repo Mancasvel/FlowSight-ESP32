@@ -1,40 +1,40 @@
 # FlowSight ESP32
 
-A native, offline FlowSight focus timer for the **ESP32-2432S028R (Cheap Yellow Display / CYD)** with a 320 × 240 touchscreen. The firmware replaces the previous application on the board.
+A native touchscreen companion for [FlowSight AI](https://github.com/Mancasvel/FlowSight.AI). Firmware **0.2.0** works with **FlowSight 6.1.1 for Windows**, connected by the same USB-C cable used for power.
 
-![FlowSight running on the ESP32 framebuffer](artifacts/device-screen.png)
+![ESP32-rendered demonstration of a Spanish app snapshot](artifacts/device-screen.png)
 
-## On the screen
+The image is a framebuffer capture rendered by the device from a documented test snapshot, not a photograph or a live account reading.
 
-- Large countdown with **Empezar**, **Pausar** and **Reanudar**.
-- Focus and break modes, with separate saved durations.
-- Reset confirmation while a session is active.
-- Completed focus session count, preserved across restarts.
-- Brightness control and four-point touch calibration.
-- Offline operation from USB power, with no account, Wi-Fi or cloud connection.
-- Saved sessions resume **paused** after a restart. Running sessions checkpoint every 30 seconds; up to 30 seconds may be repeated after abrupt power loss.
+## What it does
 
-Tap **Ajustes** to change modes or durations. A running or paused session must be reset before its duration can be changed. Focus duration is 1–180 minutes; breaks are 1–60 minutes. A completed focus session offers **Descansar**; a completed break offers **Volver al foco**. Nothing starts automatically.
+- Mirrors the desktop app's exact clock, status, Normal/Pomodoro mode, daily goal and available calendar context.
+- Starts, pauses, resumes and stops the same tracking session in the app. Stopping and mode changes have confirmation screens.
+- Follows the app's English/Spanish language preference, including native settings and connection messages.
+- Offers an End break action during a Pomodoro break.
+- Freezes the last reading and disables controls after five seconds without app updates. Reconnects automatically.
+- Stores local brightness and four-point touch calibration across normal firmware updates.
 
-The physical **BOOT** button is an alternative start/pause/resume control. Hold it for 1.5 seconds **after boot** to calibrate touch. Tap the four targets, releasing between each. A short BOOT press cancels calibration; it also times out after 90 seconds. Do not hold BOOT while applying power unless you want the ESP32 download mode.
+Open FlowSight and connect the ESP32. No Wi-Fi credentials, browser extension or separate bridge process are required. The app remains the timer authority; this firmware does not run a separate focus timer.
+
+Tap Settings / Ajustes for Normal/Pomodoro mode, brightness and touch calibration. Short-press **BOOT** for the current primary action. Hold BOOT for **1.5 seconds after startup** to calibrate; touch and release each of four crosses. A short BOOT press cancels calibration. Do not hold BOOT while powering on unless entering the flashing bootloader.
 
 ## Hardware
 
-This build targets the original CYD with **ILI9341** LCD and **XPT2046** resistive touch, not every board sold as “ESP32 with display”. The connected board's previous firmware identified itself as `Marauder vCYD`; its ESP32-D0WD-V3 has 4 MB flash. Confirm the screen visually after flashing.
+This build targets the connected **CS-32 N4XX**, a single-USB-C ESP32-D0WD-V3 with 4 MB flash. Its working profile matches **ESP32-2432S024R** wiring: ILI9341_2-compatible LCD, GPIO27 backlight, XPT2046 resistive touch on the shared display SPI bus, and a corrected landscape orientation. Display orientation and calibrated physical touch were confirmed on this unit.
 
 | Connection | GPIO |
 |---|---|
-| LCD SCLK / MOSI / MISO | 14 / 13 / 12 |
-| LCD CS / DC / backlight | 15 / 2 / 21 |
-| Touch SCLK / MOSI / MISO | 25 / 32 / 39 |
+| Shared LCD/touch SCLK / MOSI / MISO | 14 / 13 / 12 |
+| LCD CS / DC / backlight | 15 / 2 / 27 |
 | Touch CS / IRQ | 33 / 36 |
 | BOOT | 0 |
 
-The two-USB CYD variant can use ST7789 and needs a different panel configuration. The display driver contains a `FLOWSIGHT_ST7789` build option, but this variant is not hardware verified here.
+Boards marketed as Cheap Yellow Display can have different wiring. This profile is not interchangeable with a GPIO21-backlight ESP32-2432S028R or every ST7789/capacitive variant. See `include/Display.h` before adapting another unit.
 
 ## Build and install
 
-Install Python 3 and run from this repository:
+Quit FlowSight first so it releases the USB serial port. Install Python 3, then:
 
 ```powershell
 python -m venv .venv
@@ -43,45 +43,27 @@ python -m venv .venv
 .\.venv\Scripts\python -m platformio run --target upload --upload-port COM3
 ```
 
-PlatformIO keeps its toolchain inside `.local/platformio`. Compilation output is in `.pio`. On Linux/macOS use `.venv/bin/python` and the appropriate `/dev/ttyUSB…` port.
+Use the port assigned to your board. Uploads use 230400 baud. Normal updates preserve calibration and brightness. PlatformIO stores toolchains in `.local/platformio` and build output in `.pio`. On Linux/macOS use `.venv/bin/python`; the desktop USB integration currently requires Windows.
 
-For the **first replacement of Marauder**, clear flash only after building successfully. This erases the previous firmware and its settings:
-
-```powershell
-.\.venv\Scripts\python -m esptool --port COM3 erase-flash
-.\.venv\Scripts\python -m platformio run --target upload --upload-port COM3
-```
-
-Do not erase flash during normal updates if you want to retain timer settings and calibration.
-
-## Local USB control
+For a blank board or replacement firmware, the release provides one merged image including the bootloader and partition table:
 
 ```powershell
-.\.venv\Scripts\python tools/device.py --port COM3 status
-.\.venv\Scripts\python tools/device.py --port COM3 start
-.\.venv\Scripts\python tools/device.py --port COM3 pause
-.\.venv\Scripts\python tools/device.py --port COM3 resume
-.\.venv\Scripts\python tools/device.py --port COM3 reset
-.\.venv\Scripts\python tools/device.py --port COM3 duration 45
-.\.venv\Scripts\python tools/device.py --port COM3 screen artifacts/device-screen.png
+python -m esptool --chip esp32 --port COM3 --baud 230400 write-flash 0x0 firmware/FlowSight-ESP32.bin
 ```
 
-Only one process can own the serial port. Close serial monitors before uploading or using this tool. The tool leaves DTR/RTS inactive on open to avoid intentionally restarting the timer.
+For an existing FlowSight installation, prefer the normal PlatformIO upload above. Do not erase flash during routine updates.
 
-The device accepts newline-delimited JSON at 115200 baud. A request such as `{"cmd":"pause","id":7}` receives a `response` with the same ID, timer state and an `ok` flag. Commands: `status`, `start`, `pause`, `resume`, `reset`, `mode` (`value`: `focus` / `break`), `duration` (`minutes`), `calibrate`, `home` and `screen`. Invalid commands and changes to active-session duration are rejected. `tap` (`x`, `y`) is a USB automation command; it does not count as physical touch evidence.
+## Diagnostics and development
 
-The screenshot is a **snapshot rendered by the ESP32 itself**, sent over USB. It uses the same frozen timer state and two RGB565 strip buffers that draw the LCD. It verifies firmware rendering; it is not a photograph of the LCD and does not prove panel colors, orientation or touch alignment.
+Quit FlowSight before using the diagnostic client; only one process can own the serial port.
 
-## Desktop integration boundary
+```powershell
+python tools/device.py --port COM3 status
+python tools/device.py --port COM3 calibrate
+python tools/device.py --port COM3 screen artifacts/device-screen.png
+python tools/verify_device.py --port COM3
+```
 
-This release runs its own timer. It **does not yet synchronize the timer or history of the FlowSight desktop application**. The USB protocol is ready for a desktop adapter, but no existing desktop API is assumed and no FlowSight database is edited.
+The verifier acts as a test host and exercises the real firmware with explicit fixtures. It does not start desktop tracking or prove physical touch alignment. The `tap` diagnostic invokes a button in firmware and is distinct from the physical sensor's `touch_count`.
 
-## Source and licensing
-
-The source is licensed under AGPL-3.0, consistent with FlowSight's open-source edition. Dependencies retain their licenses: Arduino-ESP32, LovyanGFX and ArduinoJson. `Display.h` documents hardware configuration; `Timer.h` is a hardware-independent state machine; `src/main.cpp` implements native rendering, input, persistence and USB control. Technical verification is recorded separately in `docs/VERIFICATION.md`.
-
-Manrope is bundled under SIL OFL 1.1. The generated font subsets in `include/Fonts.h` are ready to compile. To regenerate them, install `Pillow==11.2.1` and run `python tools/make_fonts.py`.
-
-`python tools/merge_firmware.py` produces a single firmware image at `firmware/FlowSight-ESP32.bin`, written at **address 0x0**. Do not write that merged image at 0x10000. Downloadable images are distributed through GitHub Releases instead of storing build outputs in Git history.
-
-The firmware runs the hardware-independent timer assertions on the ESP32 at startup. `python tools/verify_device.py --port COM3 --fresh-device` performs the USB integration checks, including a real one-minute session and a device reset. This test resets the timer and completed-session count; use it only on a fresh test device.
+See [USB protocol](docs/USB-PROTOCOL.md), [verification notes](docs/VERIFICATION.md), and [design](DESIGN.md). Manrope is bundled under the SIL Open Font License; regenerating `include/Fonts.h` with `tools/make_fonts.py` additionally requires Pillow. No network service is exposed by the firmware.

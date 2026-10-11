@@ -4,60 +4,47 @@
 #include <cmath>
 #include <algorithm>
 #include "Display.h"
-#include "Timer.h"
 #include "Fonts.h"
 
-using flowsight::Mode;
-using flowsight::Phase;
 Display lcd;
 lgfx::LGFX_Sprite canvas(&lcd);
-// The classic ESP32 cannot always allocate 153,600 contiguous bytes.
-// Render RGB565 in two strips using a single 76,800-byte buffer.
+// One 320 x 120 RGB565 buffer, reused for both halves of the display.
 int canvasY = 0;
 Preferences prefs;
-flowsight::Timer timer;
-
-constexpr uint32_t BG = 0x101d25, PANEL = 0x1a2c36, INK = 0xe5f0f1;
-constexpr uint32_t MUTED = 0xadbec8, ACCENT = 0x6cdfd0, LINE = 0x2a414b;
+constexpr uint32_t BG=0x101d25, PANEL=0x1a2c36, INK=0xe5f0f1;
+constexpr uint32_t MUTED=0xadbec8, ACCENT=0x6cdfd0, LINE=0x2a414b;
 enum class View { Timer, Settings, Confirm, Calibration };
-enum class Action { None, Settings, Back, Primary, Reset, Focus, Break, Minus, Plus, Calibrate, Brightness, Confirm, Cancel };
-View view = View::Timer;
-Action pending = Action::None;
-struct Button { int x, y, w, h; Action action; bool enabled; };
+enum class Action { None, Settings, Back, Primary, Stop, Normal, Pomodoro, Calibrate, Brightness, Confirm, Cancel };
+View view=View::Timer;
+Action pending=Action::None;
+struct Button { int x,y,w,h; Action action; bool enabled; };
 Button buttons[10];
-int buttonCount = 0, pressed = -1;
-bool dirty = true, touchDown = false;
-uint32_t downAt = 0, lastSample = 0, lastSecond = 0xffffffff, lastSave = 0, lastUsb = 0;
-uint32_t touchCount = 0;
-int lastX = -1, lastY = -1, lastRawX = -1, lastRawY = -1;
-uint8_t brightness = 180;
-int panelReadbackMatches = -1;
+int buttonCount=0,pressed=-1;
+bool dirty=true,touchDown=false,hasState=false,online=false;
+uint32_t downAt=0,lastSample=0,lastSync=0,requestAt=0,nextId=1,waitingId=0;
+uint32_t touchCount=0;
+int lastX=-1,lastY=-1,lastRawX=-1,lastRawY=-1;
+uint8_t brightness=180;
+String language="es",mode="normal",modeLabel="",kind="",clockText="--:--:--",status="",phase="";
+String goalLabel="",goalValue="",context="",primaryAction="",primaryLabel="";
+String feedback="";
+uint32_t feedbackAt=0;
+double totalSeconds=0,goalSeconds=0;
+bool primaryEnabled=false,stopEnabled=false,modeEnabled=false,busy=false;
 struct Calibration { uint32_t magic; float x[3]; float y[3]; } calibration{};
-int calIndex = 0, calSamples = 0;
-int64_t calSumX = 0, calSumY = 0;
+int calIndex=0,calSamples=0;
+int64_t calSumX=0,calSumY=0;
 float calRaw[4][2];
-constexpr int calTargets[4][2] = {{26,26},{294,26},{26,214},{294,214}};
-uint32_t calStart = 0;
-int runTimerSelfTests();
-char input[384];
-size_t inputLength = 0;
-bool inputOverflow = false;
-
-const char* phaseName() {
-  switch (timer.state.phase) {
-    case Phase::Running: return "running";
-    case Phase::Paused: return "paused";
-    case Phase::Complete: return "complete";
-    default: return "idle";
-  }
-}
+constexpr int calTargets[4][2]={{26,26},{294,26},{26,214},{294,214}};
+uint32_t calStart=0;
+char input[4096];
+size_t inputLength=0;
+bool inputOverflow=false;
+const char* tr(const char* es,const char* en) { return language=="es"?es:en; }
+bool connected() { return hasState && millis()-lastSync<5000; }
+bool canControl() { return connected() && !busy && !waitingId; }
 const char* viewName() {
-  switch (view) {
-    case View::Settings: return "settings";
-    case View::Confirm: return "confirm";
-    case View::Calibration: return "calibration";
-    default: return "timer";
-  }
+  switch(view) { case View::Settings:return "settings"; case View::Confirm:return "confirm"; case View::Calibration:return "calibration"; default:return "timer"; }
 }
 bool validCalibration(const Calibration& c) {
   if (c.magic != 0x46534331) return false;
@@ -67,41 +54,22 @@ bool validCalibration(const Calibration& c) {
          std::abs(c.y[0]) < 1 && std::abs(c.y[1]) < 1 &&
          std::abs(c.x[2]) < 1000 && std::abs(c.y[2]) < 1000;
 }
-void persist() {
-  prefs.putBytes("timer", &timer.state, sizeof(timer.state));
-  lastSave = millis();
-}
-void stateMessage(const char* event = "state", const char* error = nullptr, int id = 0) {
+void stateMessage(const char* event="response",const char* error=nullptr,int id=0) {
   JsonDocument d;
-  d["event"] = event;
-  d["id"] = id;
-  d["ok"] = error == nullptr;
-  if (error) d["error"] = error;
-  d["version"] = FLOWSIGHT_VERSION;
-  d["board"] = "ESP32-2432S028R";
-  d["mode"] = timer.state.mode == Mode::Focus ? "focus" : "break";
-  d["phase"] = phaseName();
-  d["remaining_ms"] = timer.state.remainingMs;
-  d["seconds"] = timer.seconds();
-  d["duration_seconds"] = timer.state.durationMs / 1000;
-  d["focus_minutes"] = timer.state.focusMinutes;
-  d["break_minutes"] = timer.state.breakMinutes;
-  d["completed_sessions"] = timer.state.completed;
-  d["view"] = viewName();
-  d["touch_calibrated"] = validCalibration(calibration);
-  d["touch_count"] = touchCount;
-  d["touch_x"] = lastX;
-  d["touch_y"] = lastY;
-  d["raw_x"] = lastRawX;
-  d["raw_y"] = lastRawY;
-  d["brightness"] = brightness;
-  d["panel_readback_matches"] = panelReadbackMatches;
-  d["free_heap"] = ESP.getFreeHeap();
-  d["uptime_ms"] = millis();
-  serializeJson(d, Serial);
-  Serial.println();
+  d["event"]=event; d["id"]=id; d["ok"]=error==nullptr;
+  if(error) d["error"]=error;
+  d["product"]="flowsight-esp32"; d["protocol"]=2; d["version"]=FLOWSIGHT_VERSION;
+  d["board"]="CS-32 N4XX / 2432S024R profile";
+  d["connected"]=connected(); d["language"]=language; d["clock"]=clockText;
+  d["mode"]=mode; d["phase"]=phase; d["status"]=status; d["kind"]=kind;
+  d["goal_value"]=goalValue; d["goal_seconds"]=goalSeconds; d["total_seconds"]=totalSeconds;
+  d["primary_action"]=primaryAction; d["primary_enabled"]=canControl()&&primaryEnabled;
+  d["view"]=viewName(); d["waiting_id"]=waitingId;
+  d["touch_calibrated"]=validCalibration(calibration); d["touch_count"]=touchCount;
+  d["touch_x"]=lastX; d["touch_y"]=lastY; d["raw_x"]=lastRawX; d["raw_y"]=lastRawY;
+  d["brightness"]=brightness; d["free_heap"]=ESP.getFreeHeap();
+  serializeJson(d,Serial); Serial.println();
 }
-
 const uint8_t* selectedFont = nullptr;
 void useFont(const uint8_t* font) {
   if (selectedFont != font) { canvas.loadFont(font); selectedFont = font; }
@@ -126,81 +94,78 @@ void button(int x, int y, int w, int h, const String& text, Action action,
   if (!enabled) canvas.drawRoundRect(x,y-canvasY,w,h,10,LINE);
   label(text, x+w/2, y+h/2, color, FontBody, true);
 }
-void renderBand(int top, bool push) {
-  canvasY = top;
-  buttonCount = 0;
-  canvas.fillScreen(BG);
-  if (view == View::Timer) {
-    // The mark echoes FlowSight's two moving strokes; no bitmap assets required.
+// Truncate at a UTF-8 boundary to fit the physical panel.
+String fit(String text,int width,const uint8_t* font=FontBody) {
+  useFont(font); canvas.setTextSize(1);
+  if(canvas.textWidth(text)<=width) return text;
+  while(text.length() && canvas.textWidth(text+"...")>width) {
+    size_t end=text.length()-1;
+    while(end && (static_cast<uint8_t>(text[end])&0xc0)==0x80) --end;
+    text.remove(end);
+  }
+  return text+"...";
+}
+void renderBand(int top,bool push) {
+  canvasY=top; buttonCount=0; canvas.fillScreen(BG);
+  if(view==View::Timer) {
     canvas.fillRoundRect(12,15-canvasY,19,5,2,ACCENT);
     canvas.fillRoundRect(18,24-canvasY,19,5,2,ACCENT);
-    label("FlowSight", 44, 8, INK, FontTitle);
-    button(240,2,72,44,"Ajustes",Action::Settings);
-    label(timer.state.mode == Mode::Focus ? "Concentración" : "Descanso",12,47,ACCENT);
-    const String count = String(timer.state.completed) + (timer.state.completed == 1 ? " sesión" : " sesiones");
+    label("FlowSight",44,8,INK,FontTitle);
+    button(230,2,82,44,tr("Ajustes","Settings"),Action::Settings);
+    label(fit(hasState?kind:tr("Conecta FlowSight","Connect FlowSight"),185),12,48,MUTED);
+    // Right align mode; no independently advancing clock on the device.
+    canvas.fillRect(205,46-canvasY,115,24,BG);
     useFont(FontBody);
-    label(count,308-canvas.textWidth(count),47,MUTED);
-    char clock[12];
-    const auto sec = timer.seconds();
-    snprintf(clock,sizeof(clock),"%02lu:%02lu",static_cast<unsigned long>(sec/60),static_cast<unsigned long>(sec%60));
-    canvas.setTextDatum(textdatum_t::middle_center);
-    canvas.setTextColor(INK);
-    useFont(FontClock);
-    canvas.setTextSize(sec/60 >= 100 ? 0.8f : 1.0f);
-    canvas.drawString(clock,160,105-canvasY);
-    const char* status = "Todo listo. Empieza cuando quieras.";
-    if (timer.state.phase == Phase::Running) status = "Un paso cada vez.";
-    if (timer.state.phase == Phase::Paused) status = "En pausa. Tu tiempo está guardado.";
-    if (timer.state.phase == Phase::Complete) status = timer.state.mode == Mode::Focus ? "Sesión completada. Tómate un respiro." : "Descanso terminado. ¿Seguimos?";
-    label(status,160,146,MUTED,FontBody,true);
-    canvas.fillRoundRect(12,162-canvasY,296,4,2,LINE);
-    int progress = timer.state.durationMs ? ((uint64_t)(timer.state.durationMs-timer.state.remainingMs)*296/timer.state.durationMs) : 0;
-    if (progress > 0) canvas.fillRoundRect(12,162-canvasY,progress,4,2,ACCENT);
-    const char* action = "Empezar";
-    if (timer.state.phase == Phase::Running) action = "Pausar";
-    if (timer.state.phase == Phase::Paused) action = "Reanudar";
-    if (timer.state.phase == Phase::Complete) action = timer.state.mode == Mode::Focus ? "Descansar" : "Volver al foco";
-    button(12,178,190,50,action,Action::Primary,true);
-    button(212,178,96,50,"Reiniciar",Action::Reset,false,timer.state.phase != Phase::Idle);
-  } else if (view == View::Settings) {
-    label("Ajustes",12,10,INK,FontTitle);
-    button(240,2,72,44,"Volver",Action::Back);
-    button(12,51,144,44,"Foco",Action::Focus,timer.state.mode == Mode::Focus);
-    button(164,51,144,44,"Descanso",Action::Break,timer.state.mode == Mode::Break);
-    button(12,107,58,48,"-5",Action::Minus,false,!timer.busy() && timer.minutes()>1);
-    button(250,107,58,48,"+5",Action::Plus,false,!timer.busy() && timer.minutes()<(timer.state.mode==Mode::Focus?180:60));
-    label(String(timer.minutes())+" min",160,130,INK,FontTitle,true);
-    button(12,168,144,44,"Calibrar táctil",Action::Calibrate);
-    button(164,168,144,44,"Brillo",Action::Brightness);
-    label(timer.busy() ? "Reinicia para cambiar la duración." : "Tus ajustes quedan guardados.",160,228,MUTED,FontBody,true);
-  } else if (view == View::Confirm) {
-    const bool changingMode=pending==Action::Focus || pending==Action::Break;
-    const char* title=pending==Action::Focus ? "¿Cambiar a foco?" : pending==Action::Break ? "¿Cambiar a descanso?" : "¿Reiniciar sesión?";
-    label(title,160,54,INK,FontTitle,true);
-    label("Se descartará el tiempo de este bloque.",160,97,MUTED,FontBody,true);
-    label("Tus sesiones completadas se conservan.",160,122,MUTED,FontBody,true);
-    button(12,178,144,50,"Cancelar",Action::Cancel);
-    button(164,178,144,50,changingMode?"Cambiar":"Reiniciar",Action::Confirm,true);
+    String shownMode=fit(modeLabel,103);
+    label(shownMode,308-canvas.textWidth(shownMode),48,ACCENT);
+    useFont(FontClock); canvas.setTextSize(1);
+    const int clockWidth=canvas.textWidth(clockText);
+    canvas.setTextSize(std::min(0.68f,296.0f/std::max(1,clockWidth)));
+    canvas.setTextDatum(textdatum_t::middle_center); canvas.setTextColor(INK);
+    canvas.drawString(clockText,160,98-canvasY); canvas.setTextSize(1);
+    String shownStatus=connected()?status:tr("Sin conexión · Abre FlowSight","Offline · Open FlowSight");
+    if(waitingId) shownStatus=tr("Aplicando en FlowSight...","Applying in FlowSight...");
+    if(feedback.length() && millis()-feedbackAt<3500) shownStatus=feedback;
+    label(fit(shownStatus,296),160,131,MUTED,FontBody,true);
+    label(fit(hasState?goalLabel:tr("Objetivo diario","Daily goal"),180),12,146,MUTED);
+    useFont(FontBody); String goal=fit(goalValue,105);
+    label(goal,308-canvas.textWidth(goal),146,INK);
+    canvas.fillRoundRect(12,168-canvasY,296,3,1,LINE);
+    int progress=goalSeconds>0?static_cast<int>(std::min(1.0,std::max(0.0,totalSeconds/goalSeconds))*296):0;
+    if(progress>0) canvas.fillRoundRect(12,168-canvasY,progress,3,1,ACCENT);
+    label(fit(context,296),160,181,MUTED,FontBody,true);
+    button(12,192,192,44,fit(primaryLabel.length()?primaryLabel:tr("Esperando app","Waiting for app"),170),Action::Primary,true,canControl()&&primaryEnabled);
+    button(214,192,94,44,tr("Detener","Stop"),Action::Stop,false,canControl()&&stopEnabled);
+  } else if(view==View::Settings) {
+    label(tr("Ajustes","Settings"),12,10,INK,FontTitle);
+    button(230,2,82,44,tr("Volver","Back"),Action::Back);
+    label(tr("Modo del temporizador","Timer mode"),12,53,MUTED);
+    button(12,78,144,46,"Normal",Action::Normal,mode=="normal",canControl()&&modeEnabled);
+    button(164,78,144,46,"Pomodoro",Action::Pomodoro,mode=="pomodoro",canControl()&&modeEnabled);
+    button(12,139,144,48,tr("Calibrar táctil","Calibrate touch"),Action::Calibrate);
+    button(164,139,144,48,tr("Brillo","Brightness"),Action::Brightness);
+    label(tr("El idioma sigue a la app.","Language follows the app."),160,209,MUTED,FontBody,true);
+    label(connected()?tr("FlowSight conectado","FlowSight connected"):tr("Abre FlowSight en el PC.","Open FlowSight on your PC."),160,231,MUTED,FontBody,true);
+  } else if(view==View::Confirm) {
+    const bool stop=pending==Action::Stop;
+    label(stop?tr("¿Detener sesión?","Stop session?"):tr("¿Cambiar modo?","Change mode?"),160,55,INK,FontTitle,true);
+    label(stop?tr("Se detendrá el registro en la app.","Tracking will stop in the app."):tr("El modo cambiará también en la app.","The app will change mode too."),160,99,MUTED,FontBody,true);
+    label(tr("El tiempo de hoy se conserva.","Today's recorded time is kept."),160,124,MUTED,FontBody,true);
+    button(12,178,144,50,tr("Cancelar","Cancel"),Action::Cancel);
+    button(164,178,144,50,stop?tr("Detener","Stop"):tr("Cambiar","Change"),Action::Confirm,true,canControl());
   } else {
-    const int x = calTargets[calIndex][0], y = calTargets[calIndex][1];
+    const int x=calTargets[calIndex][0],y=calTargets[calIndex][1];
     canvas.drawCircle(x,y-canvasY,12,ACCENT);
-    canvas.drawFastHLine(x-18,y-canvasY,37,ACCENT);
-    canvas.drawFastVLine(x,y-18-canvasY,37,ACCENT);
-    label("Calibrar táctil",160,89,INK,FontTitle,true);
-    label("Toca y suelta el punto "+String(calIndex+1)+" de 4",160,122,MUTED,FontBody,true);
-    label("Pulsa BOOT para salir",160,154,MUTED,FontBody,true);
+    canvas.drawFastHLine(x-18,y-canvasY,37,ACCENT); canvas.drawFastVLine(x,y-18-canvasY,37,ACCENT);
+    label(tr("Calibrar táctil","Calibrate touch"),160,89,INK,FontTitle,true);
+    label(String(tr("Toca y suelta el punto ","Touch and release point "))+String(calIndex+1)+tr(" de 4"," of 4"),160,122,MUTED,FontBody,true);
+    label(tr("Pulsa BOOT para salir","Press BOOT to exit"),160,154,MUTED,FontBody,true);
   }
-  if (push) canvas.pushSprite(0,top);
+  if(push) canvas.pushSprite(0,top);
 }
-void render() {
-  dirty=false;
-  renderBand(0,true);
-  renderBand(120,true);
-}
+void render() { dirty=false; renderBand(0,true); renderBand(120,true); }
 
 void beginCalibration() {
-  timer.pause(millis());
-  persist();
   calIndex = 0;
   calSamples = 0;
   calSumX = calSumY = 0;
@@ -226,55 +191,37 @@ bool finishCalibration() {
   prefs.putBytes("touch",&calibration,sizeof(calibration));
   return true;
 }
+bool allowed(const String& action) {
+  if(!canControl()) return false;
+  if(action=="stop") return stopEnabled;
+  if(action=="mode_normal" || action=="mode_pomodoro") return modeEnabled;
+  return primaryEnabled && action==primaryAction;
+}
+void requestAction(const String& action) {
+  if(!allowed(action)) return;
+  waitingId=nextId++; requestAt=millis();
+  JsonDocument d; d["event"]="control"; d["id"]=waitingId; d["action"]=action;
+  serializeJson(d,Serial); Serial.println(); dirty=true;
+}
 void activate(Action action) {
-  const uint32_t now = millis();
-  if (timer.tick(now)) {
-    pressed=-1; dirty=true; persist(); stateMessage("completed");
-    // A press that straddles expiry must not accidentally start a break.
-    if (action==Action::Primary) return;
-  }
-  switch (action) {
-    case Action::Settings: view=View::Settings; break;
-    case Action::Back: view=View::Timer; break;
-    case Action::Primary:
-      if (timer.state.phase==Phase::Running) timer.pause(now);
-      else {
-        if (timer.state.phase==Phase::Complete)
-          timer.setMode(timer.state.mode==Mode::Focus?Mode::Break:Mode::Focus,now);
-        timer.start(now);
-      }
-      break;
-    case Action::Reset:
-      if (timer.busy()) { pending=action; view=View::Confirm; }
-      else timer.reset(now);
-      break;
-    case Action::Focus: case Action::Break: {
-      const Mode mode=action==Action::Focus?Mode::Focus:Mode::Break;
-      if (!timer.setMode(mode,now)) { pending=action; view=View::Confirm; }
-      break;
-    }
-    case Action::Minus: timer.configure(timer.minutes()>5?timer.minutes()-5:1,now); break;
-    case Action::Plus: timer.configure(std::min<int>(timer.minutes()+5,timer.state.mode==Mode::Focus?180:60),now); break;
+  switch(action) {
+    case Action::Settings:view=View::Settings;break;
+    case Action::Back:view=View::Timer;break;
+    case Action::Primary:requestAction(primaryAction);break;
+    case Action::Stop:if(allowed("stop")) {pending=action;view=View::Confirm;}break;
+    case Action::Normal:case Action::Pomodoro:
+      if(canControl()&&modeEnabled && mode!=(action==Action::Normal?"normal":"pomodoro")) {pending=action;view=View::Confirm;}break;
     case Action::Brightness:
       brightness=brightness==255?80:brightness==80?180:255;
-      lcd.setBrightness(brightness);
-      prefs.putUChar("brightness",brightness);
-      break;
-    case Action::Calibrate: beginCalibration(); break;
+      lcd.setBrightness(brightness);prefs.putUChar("brightness",brightness);break;
+    case Action::Calibrate:beginCalibration();break;
     case Action::Confirm:
-      if (pending==Action::Focus || pending==Action::Break)
-        timer.setMode(pending==Action::Focus?Mode::Focus:Mode::Break,now,true);
-      else timer.reset(now);
-      view=pending==Action::Reset?View::Timer:View::Settings;
-      pending=Action::None;
-      break;
-    case Action::Cancel: view=pending==Action::Reset?View::Timer:View::Settings; pending=Action::None; break;
-    default: break;
+      requestAction(pending==Action::Stop?"stop":pending==Action::Normal?"mode_normal":"mode_pomodoro");
+      view=pending==Action::Stop?View::Timer:View::Settings;pending=Action::None;break;
+    case Action::Cancel:view=pending==Action::Stop?View::Timer:View::Settings;pending=Action::None;break;
+    default:break;
   }
-  pressed=-1;
-  persist();
-  dirty=true;
-  stateMessage("action");
+  pressed=-1;dirty=true;
 }
 int hit(int x,int y) {
   for (int i=0;i<buttonCount;++i) {
@@ -317,7 +264,7 @@ void pollTouch() {
       if (calIndex==4) {
         const bool valid=finishCalibration();
         if (valid) { view=View::Timer; stateMessage("calibrated"); }
-        else { calIndex=0; stateMessage("calibration_error","Repite los cuatro puntos con precisión."); }
+        else { calIndex=0; stateMessage("calibration_error","calibration_points_invalid"); }
       }
       dirty=true;
     }
@@ -358,59 +305,56 @@ void screenshot(int id) {
   flush();
   Serial.println();
 }
+bool acceptSnapshot(JsonVariant s) {
+  if(!s.is<JsonObject>()) return false;
+  for(const char* key:{"language","mode","mode_label","kind","clock","status","phase","goal_label","goal_value","context","primary_action","primary_label"})
+    if(!s[key].is<const char*>() || strlen(s[key])>300) return false;
+  String lang=s["language"].as<String>();
+  if(lang!="es" && lang!="en") return false;
+  String value=s["clock"].as<String>();
+  if(value.length()<4 || value.length()>10) return false;
+  for(char c:value) if((c<'0'||c>'9')&&c!=':') return false;
+  for(const char* key:{"primary_enabled","stop_enabled","mode_enabled","busy"}) if(!s[key].is<bool>()) return false;
+  if(!s["total_seconds"].is<double>() || !s["goal_seconds"].is<double>()) return false;
+  if(primaryAction!=s["primary_action"].as<String>() || mode!=s["mode"].as<String>() || !s["primary_enabled"].as<bool>()) pressed=-1;
+  if(language!=lang) {language=lang;prefs.putString("language",language);}
+  mode=s["mode"].as<String>();modeLabel=s["mode_label"].as<String>();kind=s["kind"].as<String>();
+  clockText=value;status=s["status"].as<String>();phase=s["phase"].as<String>();
+  goalLabel=s["goal_label"].as<String>();goalValue=s["goal_value"].as<String>();context=s["context"].as<String>();
+  totalSeconds=s["total_seconds"].as<double>();goalSeconds=s["goal_seconds"].as<double>();
+  primaryAction=s["primary_action"].as<String>();primaryLabel=s["primary_label"].as<String>();
+  primaryEnabled=s["primary_enabled"];stopEnabled=s["stop_enabled"];modeEnabled=s["mode_enabled"];busy=s["busy"];
+  hasState=true;lastSync=millis();dirty=true;return true;
+}
 void command(const char* line) {
   JsonDocument d;
-  if (deserializeJson(d,line)) { stateMessage("response","invalid_json"); return; }
-  const char* cmd=d["cmd"] | "";
-  const int id=d["id"] | 0;
-  const uint32_t now=millis();
-  if (timer.tick(now)) { persist(); dirty=true; stateMessage("completed"); }
-  lastUsb=now;
+  if(deserializeJson(d,line)) {stateMessage("response","invalid_json");return;}
+  const char* cmd=d["cmd"]|"";const int id=d["id"]|0;
   const char* error=nullptr;
-  bool changed=false;
-  if (!strcmp(cmd,"status")) {}
-  else if (!strcmp(cmd,"start")) { timer.start(now); changed=true; }
-  else if (!strcmp(cmd,"pause")) { timer.pause(now); changed=true; }
-  else if (!strcmp(cmd,"resume")) { if (!timer.resume(now)) error="not_paused"; else changed=true; }
-  else if (!strcmp(cmd,"reset")) { timer.reset(now); view=View::Timer; changed=true; }
-  else if (!strcmp(cmd,"clear_sessions")) {
-    if (timer.busy()) error="session_active";
-    else if (!d["confirm"].is<bool>() || !d["confirm"].as<bool>()) error="confirmation_required";
-    else { timer.state.completed=0; changed=true; }
+  if(!strcmp(cmd,"hello")) {stateMessage("hello");return;}
+  if(!strcmp(cmd,"sync")) {
+    if(!acceptSnapshot(d["state"])) {stateMessage("response","invalid_snapshot",id);return;}
+    JsonDocument reply;
+    reply["event"]="synced";reply["id"]=id;reply["clock"]=clockText;
+    reply["language"]=language;reply["phase"]=phase;reply["touch_count"]=touchCount;
+    reply["touch_calibrated"]=validCalibration(calibration);
+    serializeJson(reply,Serial);Serial.println();return;
   }
-  else if (!strcmp(cmd,"mode")) {
-    const char* mode=d["value"] | "";
-    if (strcmp(mode,"focus") && strcmp(mode,"break")) error="invalid_mode";
-    else if (!timer.setMode(!strcmp(mode,"focus")?Mode::Focus:Mode::Break,now)) error="session_active";
-    else changed=true;
-  } else if (!strcmp(cmd,"duration")) {
-    if (!d["minutes"].is<int>() || d["minutes"].as<int>()<1 || d["minutes"].as<int>()>180) error="invalid_duration";
-    else if (!timer.configure(d["minutes"].as<int>(),now)) error=timer.busy()?"session_active":"invalid_duration";
-    else changed=true;
-  } else if (!strcmp(cmd,"screen")) { screenshot(id); return; }
-  else if (!strcmp(cmd,"panel_check")) {
-    if (dirty) render();
-    constexpr int points[6][2]={{0,0},{16,17},{20,26},{160,105},{18,184},{216,184}};
-    panelReadbackMatches=0;
-    for (int band=0;band<2;++band) {
-      renderBand(band*120,false);
-      for (const auto& p : points)
-        if (p[1]/120==band && lcd.readPixel(p[0],p[1])==canvas.readPixel(p[0],p[1]-band*120)) ++panelReadbackMatches;
+  if(!strcmp(cmd,"ack")) {
+    if(waitingId && d["id"].as<uint32_t>()==waitingId) {
+      waitingId=0;dirty=true;
+      if(!d["ok"].as<bool>()) {feedback=tr("Acción no aplicada. Revisa la app.","Action not applied. Check the app.");feedbackAt=millis();}
     }
+    return;
   }
-  else if (!strcmp(cmd,"calibrate")) { beginCalibration(); changed=true; }
-  else if (!strcmp(cmd,"home")) { view=View::Timer; pending=Action::None; changed=true; }
-  else if (!strcmp(cmd,"tap")) {
-    // USB automation, deliberately separate from physical touch_count.
-    if (!d["x"].is<int>() || !d["y"].is<int>()) error="invalid_coordinates";
-    else {
-      if (dirty) render();
-      const int index=hit(d["x"].as<int>(),d["y"].as<int>());
-      if (index<0) error="no_button";
-      else { activate(buttons[index].action); changed=true; }
-    }
+  if(!strcmp(cmd,"status")) {}
+  else if(!strcmp(cmd,"screen")) {screenshot(id);return;}
+  else if(!strcmp(cmd,"calibrate")) beginCalibration();
+  else if(!strcmp(cmd,"home")) {view=View::Timer;pending=Action::None;dirty=true;}
+  else if(!strcmp(cmd,"tap")) {
+    if(!d["x"].is<int>() || !d["y"].is<int>()) error="invalid_coordinates";
+    else {if(dirty) render();const int index=hit(d["x"],d["y"]);if(index<0) error="no_button";else activate(buttons[index].action);}
   } else error="unknown_command";
-  if (changed) { pressed=-1; persist(); dirty=true; }
   stateMessage("response",error,id);
 }
 void pollSerial() {
@@ -441,40 +385,27 @@ void pollBoot() {
   wasDown=down;
 }
 void setup() {
-  Serial.begin(115200);
-  runTimerSelfTests();
-  Serial.println("{\"event\":\"selftest\",\"ok\":true}");
-  pinMode(0,INPUT_PULLUP);
-  // CYD RGB LED is active-low. Keep it off; no radio or networking is started.
-  for (int pin : {4,16,17}) { pinMode(pin,OUTPUT); digitalWrite(pin,HIGH); }
-  pinMode(5,OUTPUT); digitalWrite(5,HIGH);  // Deselect unused SD.
+  Serial.begin(115200);pinMode(0,INPUT_PULLUP);
+  for(int pin:{4,16,17}) {pinMode(pin,OUTPUT);digitalWrite(pin,HIGH);}
+  pinMode(5,OUTPUT);digitalWrite(5,HIGH);
   prefs.begin("flowsight",false);
-  flowsight::Snapshot saved;
-  if (prefs.getBytesLength("timer")==sizeof(saved)) { prefs.getBytes("timer",&saved,sizeof(saved)); timer.restore(saved,millis()); }
-  brightness=prefs.getUChar("brightness",180);
-  if (brightness<40) brightness=180;
-  if (prefs.getBytesLength("touch")==sizeof(calibration)) prefs.getBytes("touch",&calibration,sizeof(calibration));
-  lcd.init();
-  lcd.setRotation(1);
-  lcd.setBrightness(brightness);
-  canvas.setColorDepth(16);
-  if (!canvas.createSprite(320,120)) {
-    lcd.fillScreen(BG); lcd.setTextColor(INK); lcd.drawString("Sin memoria. Reinicia.",12,100);
-    Serial.println("{\"event\":\"fatal\",\"error\":\"framebuffer_allocation\"}");
-    while (true) delay(1000);
+  brightness=prefs.getUChar("brightness",180);if(brightness<40) brightness=180;
+  language=prefs.getString("language","es");
+  if(prefs.getBytesLength("touch")==sizeof(calibration)) prefs.getBytes("touch",&calibration,sizeof(calibration));
+  lcd.init();lcd.setRotation(1);lcd.setBrightness(brightness);canvas.setColorDepth(16);
+  if(!canvas.createSprite(320,120)) {
+    lcd.fillScreen(BG);lcd.setTextColor(INK);lcd.drawString("Memory unavailable. Restart.",12,100);
+    while(true) delay(1000);
   }
-  canvas.setTextWrap(false);
-  render();
-  stateMessage("ready");
+  canvas.setTextWrap(false);render();stateMessage("hello");
 }
 void loop() {
-  if (timer.tick(millis())) { pressed=-1; persist(); dirty=true; stateMessage("completed"); }
-  pollSerial();
-  pollTouch();
-  pollBoot();
-  const uint32_t sec=timer.seconds();
-  if (sec!=lastSecond) { lastSecond=sec; if (view==View::Timer) dirty=true; if (lastUsb && millis()-lastUsb<15000) stateMessage(); }
-  if (timer.state.phase==Phase::Running && millis()-lastSave>=30000) persist();
-  if (dirty) render();
-  delay(2);
+  pollSerial();pollTouch();pollBoot();
+  const bool current=connected();
+  if(current!=online) {online=current;pressed=-1;dirty=true;}
+  if(waitingId && millis()-requestAt>8000) {
+    waitingId=0;feedback=tr("Sin respuesta. Revisa FlowSight.","No response. Check FlowSight.");feedbackAt=millis();dirty=true;
+  }
+  if(feedback.length() && millis()-feedbackAt>=3500) {feedback="";dirty=true;}
+  if(dirty) render();delay(2);
 }

@@ -1,25 +1,25 @@
-# USB protocol
+# USB protocol 2
 
-115200 baud, 8N1. Requests are UTF-8 JSON objects terminated by a newline, up to 383 bytes without the newline. Responses echo the numeric `id`. The serial monitor must be closed before opening another connection.
+115200 baud, 8N1. UTF-8 JSON lines, maximum 4095 input bytes before the newline. Oversized lines are discarded through the next newline. DTR/RTS stay inactive during normal app attachment. Quit FlowSight before a serial monitor, flashing tool or diagnostic client opens the port.
+
+The host sends `{"cmd":"hello"}`. Compatible firmware answers with `event: "hello"`, `product: "flowsight-esp32"`, `protocol: 2` and `version: "0.2.0"`. No state is sent before the identity check.
+
+The host sends a snapshot approximately every 500 ms:
 
 ```json
-{"cmd":"duration","minutes":25,"id":1}
-{"cmd":"start","id":2}
-{"cmd":"pause","id":3}
-{"cmd":"resume","id":4}
-{"cmd":"status","id":5}
+{"cmd":"sync","state":{"language":"es","mode":"normal","mode_label":"Normal","kind":"Registrado hoy","clock":"01:47:22","status":"Listo","phase":"ready","total_seconds":6442,"goal_seconds":21600,"goal_label":"Objetivo diario","goal_value":"6 horas","context":"Calendario conectado","primary_action":"start","primary_label":"Iniciar registro","primary_enabled":true,"stop_enabled":false,"mode_enabled":true,"busy":false}}
 ```
 
-`phase` is `idle`, `running`, `paused` or `complete`. The remaining time is reported both as `remaining_ms` and ceiling-rounded `seconds`. `mode` is `focus` or `break`. Completion is counted once, only for focus sessions. `start` continues a paused session; `resume` rejects idle or complete sessions. `reset` is an explicit command that discards the current block without resetting completed-session history.
+The firmware acknowledges with `event: "synced"` and the optional request `id`, plus its received `clock`, `language`, `phase`, physical `touch_count` and `touch_calibrated` for diagnostics. Snapshot size is bounded to 3000 bytes in the desktop transport. The clock is copied verbatim, never advanced on the ESP32. Five seconds without a valid snapshot freezes the last reading and disables controls.
 
-Duration and mode changes reject active or paused sessions. Reset first if discarding that block is intended. `clear_sessions` resets the lifetime completion count only when idle/complete and accompanied by `"confirm":true`.
+A physical action sends `{"event":"control","id":1,"action":"pause"}`. IDs increase across the current device boot. Actions are `start`, `pause`, `resume`, `stop`, `end_break`, `mode_normal`, `mode_pomodoro`. The desktop serial worker deduplicates IDs within each connection. Its renderer checks current availability and explicit action identity before invoking the app's existing control. Completion returns `{"cmd":"ack","id":1,"ok":true}`. This acknowledgement does not change the device's timer state; only the next snapshot does. No optimistic or offline control replay occurs.
 
-Additional events include `ready`, `action`, `completed`, `state`, `calibrated`, `calibration_error`, `calibration_timeout` and `selftest`. The device periodically emits `state` while it has a recent USB request. `status` includes physical `touch_count`, most recent mapped/raw coordinates, current view and whether a custom touch calibration is saved.
+Only one control can be pending on the device. An acknowledgement timeout after eight seconds clears the waiting state and displays a message. App startup or protection flows can still require interaction on the PC.
 
-`tap` invokes the visible button at `x`, `y` for UI automation. It intentionally does **not** increment physical `touch_count`. `calibrate` enters a nonblocking, four-point calibration screen; `home` exits it. A valid calibration maps raw XPT2046 coordinates through an affine transform and validates a fourth point before saving.
+## Diagnostics
 
-`screen` returns a JSON `frame` header with width 320, height 240 and format `rgb565-rle-le`. It is followed by pairs of little-endian unsigned 16-bit `(run length, RGB565 pixel)` until 76,800 pixels are decoded, then a newline. The ESP32 renders the same frozen state through the same two strip buffers used for the LCD; this is not a photograph of the panel. The provided Python client validates bounds and encodes a PNG without imaging dependencies.
+`status`, `home`, `calibrate`, and `tap` respond with `event: "response"`, `ok`, and the supplied `id`. Status includes app state, connection freshness, pending ID, physical `touch_count`, last mapped/raw coordinates, calibration status, brightness and free heap. `tap` invokes the visible enabled button at integer `x`, `y` and does not increment physical touch counts.
 
-No network service is exposed by this firmware. Pairing/authentication for any future network bridge belongs in that bridge; the current control boundary is access to the physical USB serial port.
+`screen` returns `event: "frame"`, the supplied `id`, width 320, height 240 and format `rgb565-rle-le`. It is followed by little-endian uint16 pairs `(run length, RGB565 pixel)` until 76,800 pixels are decoded, then a newline. It renders the same frozen state through the LCD's two-strip renderer. This is framebuffer evidence, not a photograph of the panel.
 
-`panel_check` reads six pixels back from the LCD controller over SPI and compares them with the framebuffer. `panel_readback_matches` is `-1` before the first check, then 0–6. A match verifies display-controller memory communication, not physical viewing angle, backlight quality or touch alignment. Some panel variants may not support readback.
+Legacy standalone commands such as start, reset or duration are not accepted. App control originates through explicit firmware button events and is executed by FlowSight.

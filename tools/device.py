@@ -29,6 +29,7 @@ class Device:
         self.serial.rts = False
         self.serial.open()
         self.next_id = 1
+        self.events = []
 
     def close(self):
         self.serial.close()
@@ -45,10 +46,11 @@ class Device:
                 message = json.loads(line)
             except (ValueError, UnicodeDecodeError):
                 continue
-            if message.get("id") == request_id and message.get("event") in ("response", "frame"):
+            if message.get("id") == request_id and message.get("event") in ("response", "frame", "synced"):
                 if message.get("ok") is False:
                     raise RuntimeError(message.get("error", "Device rejected command"))
                 return message
+            self.events.append(message)
         raise TimeoutError("No FlowSight response on the selected port.")
 
     def exact(self, size: int) -> bytes:
@@ -92,12 +94,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", help="COM3, /dev/ttyUSB0, etc. Auto-detected if omitted.")
     commands = parser.add_subparsers(dest="cmd", required=True)
-    for name in ("status", "start", "pause", "resume", "reset", "home", "calibrate", "panel_check"):
+    for name in ("status", "home", "calibrate"):
         commands.add_parser(name)
-    mode = commands.add_parser("mode")
-    mode.add_argument("value", choices=("focus", "break"))
-    duration = commands.add_parser("duration")
-    duration.add_argument("minutes", type=int)
     screen = commands.add_parser("screen")
     screen.add_argument("path", type=Path)
     tap = commands.add_parser("tap", help="Simulated USB button press; does not verify the touch sensor.")

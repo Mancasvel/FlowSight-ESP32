@@ -1,6 +1,7 @@
 .venv/
 .pio/
 .local/
+desktop-source/
 __pycache__/
 *.pyc
 *.log
