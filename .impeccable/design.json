@@ -1,0 +1,210 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-11T19:30:12.659090Z",
+  "title": "Design System: FlowSight ESP32",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "FlowSight Teal",
+        "tonalRamp": [
+          "oklch(15.00% 0.10735 184.11)",
+          "oklch(26.43% 0.10735 184.11)",
+          "oklch(37.86% 0.10735 184.11)",
+          "oklch(49.29% 0.10735 184.11)",
+          "oklch(60.71% 0.10735 184.11)",
+          "oklch(72.14% 0.10735 184.11)",
+          "oklch(83.57% 0.10735 184.11)",
+          "oklch(95.00% 0.10735 184.11)"
+        ]
+      },
+      "primary-pressed": {
+        "role": "primary",
+        "displayName": "Pressed Teal",
+        "tonalRamp": [
+          "oklch(15.00% 0.11726 182.89)",
+          "oklch(26.43% 0.11726 182.89)",
+          "oklch(37.86% 0.11726 182.89)",
+          "oklch(49.29% 0.11726 182.89)",
+          "oklch(60.71% 0.11726 182.89)",
+          "oklch(72.14% 0.11726 182.89)",
+          "oklch(83.57% 0.11726 182.89)",
+          "oklch(95.00% 0.11726 182.89)"
+        ]
+      },
+      "neutral-bg": {
+        "role": "neutral",
+        "displayName": "Dark Slate Canvas",
+        "tonalRamp": [
+          "oklch(15.00% 0.02403 236.35)",
+          "oklch(26.43% 0.02403 236.35)",
+          "oklch(37.86% 0.02403 236.35)",
+          "oklch(49.29% 0.02403 236.35)",
+          "oklch(60.71% 0.02403 236.35)",
+          "oklch(72.14% 0.02403 236.35)",
+          "oklch(83.57% 0.02403 236.35)",
+          "oklch(95.00% 0.02403 236.35)"
+        ]
+      },
+      "neutral-surface": {
+        "role": "neutral",
+        "displayName": "Slate Surface",
+        "tonalRamp": [
+          "oklch(15.00% 0.03000 233.64)",
+          "oklch(26.43% 0.03000 233.64)",
+          "oklch(37.86% 0.03000 233.64)",
+          "oklch(49.29% 0.03000 233.64)",
+          "oklch(60.71% 0.03000 233.64)",
+          "oklch(72.14% 0.03000 233.64)",
+          "oklch(83.57% 0.03000 233.64)",
+          "oklch(95.00% 0.03000 233.64)"
+        ]
+      },
+      "neutral-ink": {
+        "role": "neutral",
+        "displayName": "Pale Ink",
+        "tonalRamp": [
+          "oklch(15.00% 0.01178 203.47)",
+          "oklch(26.43% 0.01178 203.47)",
+          "oklch(37.86% 0.01178 203.47)",
+          "oklch(49.29% 0.01178 203.47)",
+          "oklch(60.71% 0.01178 203.47)",
+          "oklch(72.14% 0.01178 203.47)",
+          "oklch(83.57% 0.01178 203.47)",
+          "oklch(95.00% 0.01178 203.47)"
+        ]
+      },
+      "neutral-muted": {
+        "role": "neutral",
+        "displayName": "Muted Blue-Gray",
+        "tonalRamp": [
+          "oklch(15.00% 0.02352 233.45)",
+          "oklch(26.43% 0.02352 233.45)",
+          "oklch(37.86% 0.02352 233.45)",
+          "oklch(49.29% 0.02352 233.45)",
+          "oklch(60.71% 0.02352 233.45)",
+          "oklch(72.14% 0.02352 233.45)",
+          "oklch(83.57% 0.02352 233.45)",
+          "oklch(95.00% 0.02352 233.45)"
+        ]
+      },
+      "neutral-line": {
+        "role": "neutral",
+        "displayName": "Slate Line",
+        "tonalRamp": [
+          "oklch(15.00% 0.03344 227.02)",
+          "oklch(26.43% 0.03344 227.02)",
+          "oklch(37.86% 0.03344 227.02)",
+          "oklch(49.29% 0.03344 227.02)",
+          "oklch(60.71% 0.03344 227.02)",
+          "oklch(72.14% 0.03344 227.02)",
+          "oklch(83.57% 0.03344 227.02)",
+          "oklch(95.00% 0.03344 227.02)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Countdown",
+        "purpose": "Embedded FontClock subset with digits and a colon; proportional advances in the shipped asset."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Embedded FontTitle for brand, headings and duration."
+      },
+      "body": {
+        "displayName": "Body and controls",
+        "purpose": "Embedded FontBody for Spanish labels and supporting copy."
+      }
+    },
+    "shadows": [],
+    "motion": [],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Illustrative web translation of the native control; browser focus outline is preview-only and font appearance depends on available Manrope.",
+      "html": "<button class=\"ds-primary\">Empezar</button>",
+      "css": ".ds-primary{font:600 15px Manrope,sans-serif;border:0;border-radius:10px;padding:0;display:inline-flex;align-items:center;justify-content:center;width:190px;height:50px;background:#6cdfd0;color:#101d25;}.ds-primary:hover{background:#6cdfd0;color:#101d25;}.ds-primary:focus-visible{outline:2px solid #e5f0f1;outline-offset:2px;}.ds-primary:active{background:#35bfae;}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Illustrative web translation of the native control; browser focus outline is preview-only and font appearance depends on available Manrope.",
+      "html": "<button class=\"ds-secondary\">Cancelar</button>",
+      "css": ".ds-secondary{font:600 15px Manrope,sans-serif;border:0;border-radius:10px;padding:0;display:inline-flex;align-items:center;justify-content:center;width:144px;height:50px;background:#1a2c36;color:#e5f0f1;}.ds-secondary:hover{background:#1a2c36;color:#e5f0f1;}.ds-secondary:focus-visible{outline:2px solid #e5f0f1;outline-offset:2px;}.ds-secondary:active{background:#2a414b;}"
+    },
+    {
+      "name": "Disabled Button",
+      "kind": "button",
+      "refersTo": "button-disabled",
+      "description": "Illustrative native disabled state. The outline is drawn as an inset CSS stroke only for this preview.",
+      "html": "<button class=\"ds-disabled\" disabled>Reiniciar</button>",
+      "css": ".ds-disabled{font:600 15px Manrope,sans-serif;border:0;border-radius:10px;padding:0;display:inline-flex;align-items:center;justify-content:center;width:96px;height:50px;background:#101d25;color:#adbec8;box-shadow:inset 0 0 0 1px #2a414b;}"
+    },
+    {
+      "name": "Navigation Button",
+      "kind": "nav",
+      "refersTo": "navigation-button",
+      "description": "Illustrative web translation of the native control; browser focus outline is preview-only and font appearance depends on available Manrope.",
+      "html": "<button class=\"ds-navigation\">Ajustes</button>",
+      "css": ".ds-navigation{font:600 15px Manrope,sans-serif;border:0;border-radius:10px;padding:0;display:inline-flex;align-items:center;justify-content:center;width:72px;height:44px;background:#1a2c36;color:#e5f0f1;}.ds-navigation:hover{background:#1a2c36;color:#e5f0f1;}.ds-navigation:focus-visible{outline:2px solid #e5f0f1;outline-offset:2px;}.ds-navigation:active{background:#2a414b;}"
+    },
+    {
+      "name": "Mode Selection",
+      "kind": "custom",
+      "description": "Illustrative Foco/Descanso pair; a native button pair, without a separate tab or chip component. Browser focus outlines are preview-only.",
+      "html": "<div class=\"ds-modes\"><button class=\"ds-focus\" aria-pressed=\"true\">Foco</button><button class=\"ds-break\" aria-pressed=\"false\">Descanso</button></div>",
+      "css": ".ds-modes{display:flex;gap:8px;width:296px;}.ds-focus{font:600 15px Manrope,sans-serif;border:0;border-radius:10px;padding:0;display:inline-flex;align-items:center;justify-content:center;width:144px;height:44px;background:#6cdfd0;color:#101d25;}.ds-focus:hover{background:#6cdfd0;color:#101d25;}.ds-focus:focus-visible{outline:2px solid #e5f0f1;outline-offset:2px;}.ds-focus:active{background:#35bfae;}.ds-break{font:600 15px Manrope,sans-serif;border:0;border-radius:10px;padding:0;display:inline-flex;align-items:center;justify-content:center;width:144px;height:44px;background:#1a2c36;color:#e5f0f1;}.ds-break:hover{background:#1a2c36;color:#e5f0f1;}.ds-break:focus-visible{outline:2px solid #e5f0f1;outline-offset:2px;}.ds-break:active{background:#2a414b;}"
+    },
+    {
+      "name": "Elapsed Progress",
+      "kind": "custom",
+      "description": "Illustrative progress track at a sample elapsed fraction; the firmware derives fill width from remaining time.",
+      "html": "<div class=\"ds-track\" role=\"progressbar\" aria-label=\"Tiempo transcurrido\" aria-valuenow=\"25\" aria-valuemin=\"0\" aria-valuemax=\"100\"><span class=\"ds-progress\"></span></div>",
+      "css": ".ds-track{width:296px;height:4px;border-radius:2px;background:#2a414b;overflow:hidden;}.ds-progress{display:block;width:25%;height:4px;border-radius:2px;background:#6cdfd0;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "FlowSight on the small display",
+    "overview": "The implemented interface extends the FlowSight desktop visual family onto a small physical display. A dark slate canvas, pale type and a clear teal action keep the timer dominant. Compact controls use plain Spanish labels and visible state feedback.\n\nThe native surface has a fixed landscape frame. Hierarchy comes from type size, spacing and tonal separation; screen changes are immediate, with no decorative motion.",
+    "keyCharacteristics": [
+      "A dominant clock with quieter mode, session count and status text.",
+      "Teal actions and selected modes, supported by explicit wording.",
+      "Rounded controls with visible pressed and disabled states."
+    ],
+    "rules": [
+      {
+        "name": "The Written State Rule",
+        "body": "Color complements the mode, status and action label; it does not replace them.",
+        "section": "colors"
+      },
+      {
+        "name": "The Release Rule",
+        "body": "Touching down changes the fill; release activates after a minimum 35 ms press. Sliding off cancels the action, and sliding back does not reactivate it.",
+        "section": "components"
+      },
+      {
+        "name": "The Protected Change Rule",
+        "body": "Resetting or changing mode during a running or paused block requires an explicit on-device confirmation.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** preserve FlowSight's dark slate and teal identity on this device.",
+      "**Do** use explicit Spanish labels and keep each state understandable in words.",
+      "**Do** retain touch targets at least 44 px tall and release-to-activate behavior.",
+      "**Do** preserve the complete composition across both rendering strips."
+    ],
+    "donts": [
+      "**Don't** reduce clock prominence to accommodate decorative content.",
+      "**Don't** discard an active or paused block from touch controls without confirmation.",
+      "**Don't** start the next focus or break block automatically on completion.",
+      "**Don't** treat framebuffer captures as proof of physical LCD or touch alignment."
+    ]
+  }
+}

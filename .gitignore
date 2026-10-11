@@ -1,0 +1,10 @@
+.venv/
+.pio/
+.local/
+__pycache__/
+*.pyc
+*.log
+.impeccable/*
+!.impeccable/design.json
+artifacts/*.bin
+firmware/*.bin
