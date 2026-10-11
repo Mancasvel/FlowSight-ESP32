@@ -1,0 +1,9 @@
+# Local generation environments and session notes.
+.buildenv/
+__pycache__/
+*.pyc
+PROJECT_LOG.md
+
+# Temporary review captures and downloaded reference material.
+preview/guide-inspection.jpg
+references/

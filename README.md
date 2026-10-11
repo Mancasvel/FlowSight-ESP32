@@ -32,6 +32,14 @@ This build targets the connected **CS-32 N4XX**, a single-USB-C ESP32-D0WD-V3 wi
 
 Boards marketed as Cheap Yellow Display can have different wiring. This profile is not interchangeable with a GPIO21-backlight ESP32-2432S028R or every ST7789/capacitive variant. See `include/Display.h` before adapting another unit.
 
+## 3D-printable enclosure
+
+[**FlowSight Desk**](enclosure/README.md) is a branded desktop enclosure with a 65° stand, removable rear cover, ventilated service hatch and lateral USB access. Download the 3MF print layouts, individual STL parts, editable STEP models and [illustrated assembly guide](enclosure/FlowSight-Desk-guia.pdf).
+
+![CAD render of FlowSight Desk with a demonstration screen](enclosure/preview/FlowSight-Desk-front.png)
+
+Two mechanical configurations are included: a 024 reference for the CS-32 N4XX and a 2.8-inch ESP32-2432S028R enclosure. Print the corresponding fit template first: the CS-32's mechanical dimensions have not yet been confirmed, and the 028 enclosure does not change the firmware's supported wiring profile. The image is a render of the printable CAD with a firmware-generated test snapshot.
+
 ## Build and install
 
 Quit FlowSight first so it releases the USB serial port. Install Python 3, then:
