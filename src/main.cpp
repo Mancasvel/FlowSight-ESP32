@@ -226,6 +226,10 @@ void activate(Action action) {
 int hit(int x,int y) {
   for (int i=0;i<buttonCount;++i) {
     const auto& b=buttons[i];
+    // Edge targets need extra tolerance on the resistive panel. This header
+    // area has no adjacent controls and includes the measured y=49 touch.
+    if (b.enabled && (b.action==Action::Settings || b.action==Action::Back) &&
+        x>=220 && x<=330 && y>=-10 && y<64) return i;
     if (b.enabled && x>=b.x && y>=b.y && x<b.x+b.w && y<b.y+b.h) return i;
   }
   return -1;
@@ -316,7 +320,8 @@ bool acceptSnapshot(JsonVariant s) {
   for(char c:value) if((c<'0'||c>'9')&&c!=':') return false;
   for(const char* key:{"primary_enabled","stop_enabled","mode_enabled","busy"}) if(!s[key].is<bool>()) return false;
   if(!s["total_seconds"].is<double>() || !s["goal_seconds"].is<double>()) return false;
-  if(primaryAction!=s["primary_action"].as<String>() || mode!=s["mode"].as<String>() || !s["primary_enabled"].as<bool>()) pressed=-1;
+  if(pressed>=0 && buttons[pressed].action==Action::Primary &&
+      (primaryAction!=s["primary_action"].as<String>() || mode!=s["mode"].as<String>() || !s["primary_enabled"].as<bool>())) pressed=-1;
   if(language!=lang) {language=lang;prefs.putString("language",language);}
   mode=s["mode"].as<String>();modeLabel=s["mode_label"].as<String>();kind=s["kind"].as<String>();
   clockText=value;status=s["status"].as<String>();phase=s["phase"].as<String>();

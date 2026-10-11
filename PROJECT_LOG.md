@@ -14,8 +14,12 @@ The initial autonomous countdown was superseded by protocol 2. Firmware 0.2.0 ta
 
 Desktop work is isolated in `desktop-source`, branch `feat/esp32-companion`, based on the released 6.1.0 tree. The original Desktop checkout has pre-existing changes and was not edited. FlowSight 6.1.1 adds a Windows serial worker and renderer event transport, reusing existing monitoring, Pomodoro, calendar and localization behavior.
 
-Desktop source commit: `1a29553`. PR: https://github.com/Mancasvel/FlowSight.AI/pull/37 . Compatible release build: https://github.com/Mancasvel/FlowSight.AI/actions/runs/38171382104 . Release remains a draft while installers and end-to-end verification are pending.
+Desktop source commit: `1a29553`; merged through PR https://github.com/Mancasvel/FlowSight.AI/pull/37 at `f4204f6`. Compatible release build https://github.com/Mancasvel/FlowSight.AI/actions/runs/38171382104 passed. Version 6.1.1 was installed from its verified installer payload; only `app.exe` and `dump_tool_schemas.exe` differed from the existing installation. Other resources matched byte-for-byte. Existing MCP processes and the user's profile were preserved.
 
 ## Verification and delivery
 
-See `docs/VERIFICATION.md` for evidence. Renderer tests, Rust unit tests and the frontend production build passed. Native lint, the release build and final device verification are in progress. Keep current source, final firmware and minimal evidence; remove temporary build caches after successful delivery.
+See `docs/VERIFICATION.md` for evidence. Renderer tests, Rust unit tests, native lint, frontend build and desktop release checks passed. The owner confirmed that physical play/pause controls the app. A real serial snapshot matched the app's paused reading, daily goal and Spanish labels.
+
+Settings initially missed the owner's physical touch at (269, 49), three pixels below its original rectangle. The isolated header hit area was widened for both Settings and Back, and local touches no longer cancel on unrelated timer changes. The corrected firmware passed all 17 device protocol checks, including that exact coordinate, and was flashed without erasing saved calibration.
+
+The release includes a merged image for blank boards and an application-only image for updates that preserve calibration. Keep current source, final firmware and minimal evidence; remove temporary build caches after successful delivery.

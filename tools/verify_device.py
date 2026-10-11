@@ -68,10 +68,12 @@ def main():
         sync(language='en', kind='Recorded today', status='Paused', phase='paused', goal_label='Daily goal',
              goal_value='6 hours', context='Calendar connected', primary_action='resume', primary_label='Resume tracking')
         check(device.request('status')['language'] == 'en', 'language changes without reflashing')
-        device.request('tap', x=265, y=25)
+        device.request('tap', x=269, y=49)
+        check(device.request('status')['view'] == 'settings', 'header target accepts the measured physical edge touch')
         if args.capture_dir:
             device.capture(args.capture_dir / 'settings-en.png')
-        device.request('home')
+        device.request('tap', x=269, y=49)
+        check(device.request('status')['view'] == 'timer', 'back uses the same tolerant header target')
         sync(mode='pomodoro', mode_label='Pomodoro', clock='04:59', kind='Break', phase='break',
              primary_action='end_break', primary_label='End break')
         check(device.request('status')['clock'] == '04:59', 'Pomodoro clock comes from the host')

@@ -16,9 +16,11 @@ The prior standalone-timer verification does not apply to firmware 0.2.0. This v
 - Windows Rust suite: 288 passed, 2 pre-existing ignored.
 - Vite production build and release manifest consistency passed.
 - Native lint with all targets/features and warnings denied passed.
-- Actual ESP32 protocol checks: 15 passed, including exact snapshot clock/goal, explicit start/pause, duplicate prevention, English/Spanish changes, Pomodoro clock, malformed input, disconnect freeze and reconnect.
-- Firmware built and flashed at 230400 baud with verified flash hash. App image: 454,304 bytes; merged bootable image: 519,840 bytes. Static RAM: 28,480 bytes. Runtime status after update retained touch calibration and showed 259,108 bytes free heap.
+- Actual ESP32 protocol checks: 17 passed, including exact snapshot clock/goal, explicit start/pause, duplicate prevention, English/Spanish changes, Pomodoro clock, malformed input, disconnect freeze, reconnect, and Settings/Back at the measured physical coordinate (269, 49).
+- Firmware built and flashed at 230400 baud with verified flash hash. App image: 454,368 bytes; merged bootable image: 519,904 bytes. Static RAM: 28,480 bytes. Runtime status after update retained touch calibration and showed approximately 259 KB free heap.
 - The four current framebuffer captures were inspected together for layout, labels, control states and text clipping.
-- The desktop release build and live-app verification are still pending.
+- FlowSight 6.1.1 release build and all PR checks passed. Installed app files match the verified release installer payload. The original profile and daily total were preserved.
+- Live desktop and device readings matched after an actual tracking/pause cycle, including the six-hour goal, Spanish labels and paused action. The owner confirmed physical play/pause controlled the app.
+- The header target was widened after the real sensor reported Settings touches just below the original button rectangle. The same correction applies to Back. Only the primary action's in-flight touch is cancelled when app state changes.
 
 `tools/verify_device.py` drives the actual firmware through a test host. Its captures are device-rendered fixtures. They establish firmware layout and transport behavior; they do not establish a live app reading or independently prove physical touch alignment.

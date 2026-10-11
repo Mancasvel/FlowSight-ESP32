@@ -2,6 +2,7 @@
 .pio/
 .local/
 desktop-source/
+evidence/
 __pycache__/
 *.pyc
 *.log

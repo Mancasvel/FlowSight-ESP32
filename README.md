@@ -51,7 +51,13 @@ For a blank board or replacement firmware, the release provides one merged image
 python -m esptool --chip esp32 --port COM3 --baud 230400 write-flash 0x0 firmware/FlowSight-ESP32.bin
 ```
 
-For an existing FlowSight installation, prefer the normal PlatformIO upload above. Do not erase flash during routine updates.
+For an existing FlowSight installation, use the normal PlatformIO upload above or the application-only update image to keep calibration and brightness:
+
+```powershell
+python -m esptool --chip esp32 --port COM3 --baud 230400 write-flash 0x10000 firmware/FlowSight-ESP32-update.bin
+```
+
+Do not erase flash during routine updates. `SHA256SUMS.txt` covers both release images.
 
 ## Diagnostics and development
 

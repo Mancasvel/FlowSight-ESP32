@@ -6,6 +6,6 @@ Canvas: 320 × 240 landscape. Colors: background #101d25, secondary surface #1a2
 
 Render through a single 320 × 120 RGB565 sprite twice per frame to fit the classic ESP32's contiguous heap. The device never extrapolates the app clock. Pending requests show Applying in FlowSight; rejected or timed-out actions ask the user to check the app. Offline controls are outlined and disabled.
 
-Touch activates on release, requires a minimum 35 ms press, and cancels on sliding away. A change in the offered app action cancels an in-flight primary press. A saved four-point affine transform aligns touch with the corrected panel orientation. Firmware updates keep this calibration.
+Touch activates on release, requires a minimum 35 ms press, and cancels on sliding away. The isolated Settings/Back header target extends into its surrounding space for resistive touch tolerance; a measured touch at (269, 49) is accepted. A change in the offered app action cancels an in-flight primary press while preserving local settings gestures. A saved four-point affine transform aligns touch with the corrected panel orientation. Firmware updates keep this calibration.
 
 All app labels arrive translated. Local settings, confirmations, calibration and connection copy use the same English/Spanish preference. Screenshots in artifacts are actual firmware-rendered test snapshots, not photographs.

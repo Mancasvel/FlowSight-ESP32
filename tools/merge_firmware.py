@@ -1,5 +1,7 @@
 """Create a single image that can be written at flash address 0x0."""
 from pathlib import Path
+import hashlib
+import shutil
 import subprocess
 import sys
 
@@ -14,4 +16,10 @@ subprocess.run([
     "0x1000", str(build / "bootloader.bin"), "0x8000", str(build / "partitions.bin"),
     "0xe000", str(boot_app), "0x10000", str(build / "firmware.bin"),
 ], check=True)
+update = destination.with_name("FlowSight-ESP32-update.bin")
+shutil.copyfile(build / "firmware.bin", update)
+destination.with_name("SHA256SUMS.txt").write_text(
+    "".join(hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n"
+            for path in (destination, update)), encoding="ascii")
 print(destination)
+print(update)
