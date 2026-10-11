@@ -28,6 +28,8 @@ class Device:
         self.serial.dtr = False
         self.serial.rts = False
         self.serial.open()
+        # A previous host can disconnect in the middle of a JSON line.
+        self.serial.write(b"\n")
         self.next_id = 1
         self.events = []
 

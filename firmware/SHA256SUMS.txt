@@ -1,2 +1,2 @@
-ee58a5e1850c6ef1da3cdc2444749f5da8a63fd81a7d4a273118b500dbf398b3  FlowSight-ESP32.bin
-440dba26181fc36b899ac81f7a7df555267697ff27370a164decbaed6c1411ed  FlowSight-ESP32-update.bin
+db2fbff201467f8e08a4a26697d818f736d3ea8c63c666e0a2a217ac3ebe2237  FlowSight-ESP32.bin
+02ece7af69ee02d20857903430fb3f96407bf0b532c7bcbbaf3cae2267d53995  FlowSight-ESP32-update.bin

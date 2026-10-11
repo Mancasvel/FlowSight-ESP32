@@ -18,7 +18,7 @@ Only one control can be pending on the device. An acknowledgement timeout after 
 
 ## Diagnostics
 
-`status`, `home`, `calibrate`, and `tap` respond with `event: "response"`, `ok`, and the supplied `id`. Status includes app state, connection freshness, pending ID, physical `touch_count`, last mapped/raw coordinates, calibration status, brightness and free heap. `tap` invokes the visible enabled button at integer `x`, `y` and does not increment physical touch counts.
+`status`, `home`, `calibrate`, and `tap` respond with `event: "response"`, `ok`, and the supplied `id`. Status includes app state, connection freshness, pending ID, physical `touch_count`, last mapped/raw coordinates, calibration status, brightness and free heap. `touch_pressed` is the captured button index or -1. `touch_result` reports `none`, `holding`, `tap`, `cancelled`, or `unconfirmed` for physical gesture diagnosis. `tap` invokes the visible enabled button at integer `x`, `y` and does not increment physical touch counts.
 
 `screen` returns `event: "frame"`, the supplied `id`, width 320, height 240 and format `rgb565-rle-le`. It is followed by little-endian uint16 pairs `(run length, RGB565 pixel)` until 76,800 pixels are decoded, then a newline. It renders the same frozen state through the LCD's two-strip renderer. This is framebuffer evidence, not a photograph of the panel.
 

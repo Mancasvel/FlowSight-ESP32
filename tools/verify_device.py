@@ -72,6 +72,24 @@ def main():
         check(device.request('status')['view'] == 'settings', 'header target accepts the measured physical edge touch')
         if args.capture_dir:
             device.capture(args.capture_dir / 'settings-en.png')
+        original_brightness = device.request('status')['brightness']
+        device.request('tap', x=236, y=163)
+        check(device.request('status')['brightness'] != original_brightness, 'settings brightness changes locally')
+        device.request('tap', x=236, y=163)
+        device.request('tap', x=236, y=163)
+        check(device.request('status')['brightness'] == original_brightness, 'brightness cycle restores original level')
+        sync()
+        device.request('tap', x=236, y=101)
+        check(device.request('status')['view'] == 'confirm', 'Pomodoro setting opens mode confirmation')
+        device.request('tap', x=84, y=203)
+        check(device.request('status')['view'] == 'settings', 'cancelling mode change returns to settings')
+        device.request('tap', x=236, y=101)
+        device.events.clear()
+        device.request('tap', x=236, y=203)
+        controls = [event for event in device.events if event.get('event') == 'control']
+        check(len(controls) == 1 and controls[0]['action'] == 'mode_pomodoro', 'confirmed settings action sends one mode request')
+        device.serial.write((json.dumps(dict(cmd='ack', id=controls[0]['id'], ok=True))+'\n').encode())
+        sync()
         device.request('tap', x=269, y=49)
         check(device.request('status')['view'] == 'timer', 'back uses the same tolerant header target')
         sync(mode='pomodoro', mode_label='Pomodoro', clock='04:59', kind='Break', phase='break',
@@ -92,6 +110,14 @@ def main():
         rejects('tap', 'no_button', x=105, y=213)
         if args.capture_dir:
             device.capture(args.capture_dir / 'offline-en.png')
+        device.request('tap', x=269, y=49)
+        device.request('tap', x=236, y=163)
+        check(device.request('status')['brightness'] != original_brightness, 'brightness remains available without the app')
+        device.request('tap', x=236, y=163)
+        device.request('tap', x=236, y=163)
+        device.request('tap', x=84, y=163)
+        check(device.request('status')['view'] == 'calibration', 'touch calibration opens without the app')
+        device.request('home')
         sync(language='es', mode='normal', mode_label='Normal', clock='01:47:22', kind='Registrado hoy',
              status='Listo', phase='ready', goal_label='Objetivo diario', goal_value='6 horas',
              context='Calendario conectado', primary_action='start', primary_label='Iniciar registro', stop_enabled=False)

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include "Display.h"
 #include "Fonts.h"
+#include "TouchGesture.h"
 
 Display lcd;
 lgfx::LGFX_Sprite canvas(&lcd);
@@ -20,8 +21,9 @@ Action pending=Action::None;
 struct Button { int x,y,w,h; Action action; bool enabled; };
 Button buttons[10];
 int buttonCount=0,pressed=-1;
+TouchGesture touchGesture;
 bool dirty=true,touchDown=false,hasState=false,online=false;
-uint32_t downAt=0,lastSample=0,lastSync=0,requestAt=0,nextId=1,waitingId=0;
+uint32_t lastSample=0,lastSync=0,requestAt=0,nextId=1,waitingId=0;
 uint32_t touchCount=0;
 int lastX=-1,lastY=-1,lastRawX=-1,lastRawY=-1;
 uint8_t brightness=180;
@@ -67,6 +69,7 @@ void stateMessage(const char* event="response",const char* error=nullptr,int id=
   d["view"]=viewName(); d["waiting_id"]=waitingId;
   d["touch_calibrated"]=validCalibration(calibration); d["touch_count"]=touchCount;
   d["touch_x"]=lastX; d["touch_y"]=lastY; d["raw_x"]=lastRawX; d["raw_y"]=lastRawY;
+  d["touch_pressed"]=pressed; d["touch_result"]=touchGesture.result;
   d["brightness"]=brightness; d["free_heap"]=ESP.getFreeHeap();
   serializeJson(d,Serial); Serial.println();
 }
@@ -171,6 +174,7 @@ void beginCalibration() {
   calSumX = calSumY = 0;
   calStart = millis();
   view = View::Calibration;
+  touchGesture.cancel();
   pressed = -1;
   dirty = true;
 }
@@ -204,6 +208,7 @@ void requestAction(const String& action) {
   serializeJson(d,Serial); Serial.println(); dirty=true;
 }
 void activate(Action action) {
+  touchGesture.cancel();
   switch(action) {
     case Action::Settings:view=View::Settings;break;
     case Action::Back:view=View::Timer;break;
@@ -235,20 +240,21 @@ int hit(int x,int y) {
   return -1;
 }
 void touchEvent(bool down,int x,int y) {
-  if (down && !touchDown) {
-    pressed=hit(x,y);
-    downAt=millis();
-    dirty=true;
-  } else if (down && pressed>=0 && hit(x,y)!=pressed) {
-    pressed=-1;  // Sliding off cancels; sliding back does not reactivate.
-    dirty=true;
-  } else if (!down && touchDown) {
-    const int released=pressed;
-    pressed=-1;
-    dirty=true;
-    if (released>=0 && millis()-downAt>=35) activate(buttons[released].action);
+  const int target=down?hit(x,y):-1;
+  bool inside=false;
+  if (pressed>=0 && pressed<buttonCount) {
+    const auto& b=buttons[pressed];
+    // Hysteresis only retains an already captured target; it cannot select a
+    // neighbouring control or turn a disabled button into an active one.
+    inside=b.enabled && (target==pressed ||
+        (x>=b.x-12 && y>=b.y-12 && x<b.x+b.w+12 && y<b.y+b.h+12));
   }
+  const int released=touchGesture.update(down,target,inside,millis());
+  if (pressed!=touchGesture.pressed) dirty=true;
+  pressed=touchGesture.pressed;
   touchDown=down;
+  if (released>=0 && released<buttonCount && buttons[released].enabled)
+    activate(buttons[released].action);
 }
 void pollTouch() {
   if (millis()-lastSample<12) return;
@@ -320,8 +326,13 @@ bool acceptSnapshot(JsonVariant s) {
   for(char c:value) if((c<'0'||c>'9')&&c!=':') return false;
   for(const char* key:{"primary_enabled","stop_enabled","mode_enabled","busy"}) if(!s[key].is<bool>()) return false;
   if(!s["total_seconds"].is<double>() || !s["goal_seconds"].is<double>()) return false;
+  // The clock is not visible in Settings/Calibration. Repainting those views
+  // on every host tick unnecessarily blocks sampling on the shared SPI bus.
+  const bool repaint=view==View::Timer || view==View::Confirm || language!=lang ||
+      (view==View::Settings && (!connected() || mode!=s["mode"].as<String>() ||
+       busy!=s["busy"].as<bool>() || modeEnabled!=s["mode_enabled"].as<bool>()));
   if(pressed>=0 && buttons[pressed].action==Action::Primary &&
-      (primaryAction!=s["primary_action"].as<String>() || mode!=s["mode"].as<String>() || !s["primary_enabled"].as<bool>())) pressed=-1;
+      (primaryAction!=s["primary_action"].as<String>() || mode!=s["mode"].as<String>() || !s["primary_enabled"].as<bool>())) {touchGesture.cancel();pressed=-1;}
   if(language!=lang) {language=lang;prefs.putString("language",language);}
   mode=s["mode"].as<String>();modeLabel=s["mode_label"].as<String>();kind=s["kind"].as<String>();
   clockText=value;status=s["status"].as<String>();phase=s["phase"].as<String>();
@@ -329,7 +340,7 @@ bool acceptSnapshot(JsonVariant s) {
   totalSeconds=s["total_seconds"].as<double>();goalSeconds=s["goal_seconds"].as<double>();
   primaryAction=s["primary_action"].as<String>();primaryLabel=s["primary_label"].as<String>();
   primaryEnabled=s["primary_enabled"];stopEnabled=s["stop_enabled"];modeEnabled=s["mode_enabled"];busy=s["busy"];
-  hasState=true;lastSync=millis();dirty=true;return true;
+  hasState=true;lastSync=millis();dirty=dirty||repaint;return true;
 }
 void command(const char* line) {
   JsonDocument d;
@@ -355,7 +366,7 @@ void command(const char* line) {
   if(!strcmp(cmd,"status")) {}
   else if(!strcmp(cmd,"screen")) {screenshot(id);return;}
   else if(!strcmp(cmd,"calibrate")) beginCalibration();
-  else if(!strcmp(cmd,"home")) {view=View::Timer;pending=Action::None;dirty=true;}
+  else if(!strcmp(cmd,"home")) {touchGesture.cancel();pressed=-1;view=View::Timer;pending=Action::None;dirty=true;}
   else if(!strcmp(cmd,"tap")) {
     if(!d["x"].is<int>() || !d["y"].is<int>()) error="invalid_coordinates";
     else {if(dirty) render();const int index=hit(d["x"],d["y"]);if(index<0) error="no_button";else activate(buttons[index].action);}
@@ -407,7 +418,15 @@ void setup() {
 void loop() {
   pollSerial();pollTouch();pollBoot();
   const bool current=connected();
-  if(current!=online) {online=current;pressed=-1;dirty=true;}
+  if(current!=online) {
+    online=current;
+    if(pressed>=0) {
+      const auto action=buttons[pressed].action;
+      if(action==Action::Primary || action==Action::Stop || action==Action::Normal ||
+          action==Action::Pomodoro || action==Action::Confirm) {touchGesture.cancel();pressed=-1;}
+    }
+    dirty=true;
+  }
   if(waitingId && millis()-requestAt>8000) {
     waitingId=0;feedback=tr("Sin respuesta. Revisa FlowSight.","No response. Check FlowSight.");feedbackAt=millis();dirty=true;
   }
