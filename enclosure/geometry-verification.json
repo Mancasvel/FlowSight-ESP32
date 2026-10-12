@@ -1,26 +1,39 @@
 {
+  "revision": "1.1",
   "parts": {
     "Front_CS32_024_reference": {
       "bbox_mm": [
-        104.0,
-        78.0,
-        20.0
+        92.0,
+        68.0,
+        19.2
       ],
-      "volume_cm3": 30.291,
+      "volume_cm3": 23.323,
       "watertight": true,
       "shells": 1,
-      "triangles": 28854
+      "triangles": 28686,
+      "print_origin_mm": [
+        -46.0000001,
+        -34.0000001,
+        -1.000000001110223e-07
+      ],
+      "print_flip_x": false
     },
     "Front_CYD_028": {
       "bbox_mm": [
         104.0,
-        78.0,
-        20.0
+        74.0,
+        19.2
       ],
-      "volume_cm3": 28.594,
+      "volume_cm3": 26.521,
       "watertight": true,
       "shells": 1,
-      "triangles": 28854
+      "triangles": 28514,
+      "print_origin_mm": [
+        -52.0000001,
+        -37.0000001,
+        -1.000000001110223e-07
+      ],
+      "print_flip_x": false
     },
     "Fit_check_CS32_024_reference": {
       "bbox_mm": [
@@ -31,7 +44,13 @@
       "volume_cm3": 3.765,
       "watertight": true,
       "shells": 1,
-      "triangles": 4272
+      "triangles": 4272,
+      "print_origin_mm": [
+        -40.7,
+        -20.95,
+        0.0
+      ],
+      "print_flip_x": false
     },
     "Fit_check_CYD_028": {
       "bbox_mm": [
@@ -42,18 +61,47 @@
       "volume_cm3": 4.677,
       "watertight": true,
       "shells": 1,
-      "triangles": 4272
+      "triangles": 4272,
+      "print_origin_mm": [
+        -46.8,
+        -24.5,
+        0.0
+      ],
+      "print_flip_x": false
     },
-    "Rear_cover": {
+    "Rear_cover_CS32_024_reference": {
       "bbox_mm": [
-        104.0,
-        78.0,
+        92.0,
+        68.0,
         6.2
       ],
-      "volume_cm3": 19.805,
+      "volume_cm3": 13.786,
       "watertight": true,
       "shells": 1,
-      "triangles": 20588
+      "triangles": 20588,
+      "print_origin_mm": [
+        -46.0,
+        -34.0,
+        -22.400000000000002
+      ],
+      "print_flip_x": true
+    },
+    "Rear_cover_CYD_028": {
+      "bbox_mm": [
+        104.0,
+        74.0,
+        6.2
+      ],
+      "volume_cm3": 18.459,
+      "watertight": true,
+      "shells": 1,
+      "triangles": 20588,
+      "print_origin_mm": [
+        -52.0,
+        -37.0000001,
+        -22.4
+      ],
+      "print_flip_x": true
     },
     "Service_hatch": {
       "bbox_mm": [
@@ -64,18 +112,30 @@
       "volume_cm3": 5.773,
       "watertight": true,
       "shells": 1,
-      "triangles": 9808
+      "triangles": 9808,
+      "print_origin_mm": [
+        -40.0,
+        -23.000000000000004,
+        -24.4
+      ],
+      "print_flip_x": true
     },
     "Desk_stand_65deg": {
       "bbox_mm": [
         90.0,
-        64.0,
-        34.0
+        66.0,
+        25.0
       ],
-      "volume_cm3": 53.154,
+      "volume_cm3": 37.318,
       "watertight": true,
       "shells": 1,
-      "triangles": 14492
+      "triangles": 14516,
+      "print_origin_mm": [
+        -45.0,
+        -43.0,
+        -1.1102230246251565e-16
+      ],
+      "print_flip_x": false
     },
     "PCB_spacer_0p4mm": {
       "bbox_mm": [
@@ -86,7 +146,13 @@
       "volume_cm3": 0.007,
       "watertight": true,
       "shells": 1,
-      "triangles": 840
+      "triangles": 840,
+      "print_origin_mm": [
+        -2.8,
+        -2.8,
+        0.0
+      ],
+      "print_flip_x": false
     },
     "PCB_spacer_0p8mm": {
       "bbox_mm": [
@@ -97,7 +163,13 @@
       "volume_cm3": 0.015,
       "watertight": true,
       "shells": 1,
-      "triangles": 840
+      "triangles": 840,
+      "print_origin_mm": [
+        -2.8,
+        -2.8,
+        0.0
+      ],
+      "print_flip_x": false
     },
     "PCB_spacer_1p2mm": {
       "bbox_mm": [
@@ -108,18 +180,30 @@
       "volume_cm3": 0.022,
       "watertight": true,
       "shells": 1,
-      "triangles": 840
+      "triangles": 840,
+      "print_origin_mm": [
+        -2.8,
+        -2.8,
+        0.0
+      ],
+      "print_flip_x": false
     },
     "Brand_inlay_optional": {
       "bbox_mm": [
-        61.597,
-        10.612,
+        46.496,
+        6.963,
         0.6
       ],
-      "volume_cm3": 0.065,
+      "volume_cm3": 0.038,
       "watertight": true,
       "shells": 14,
-      "triangles": 6062
+      "triangles": 6134,
+      "print_origin_mm": [
+        -20.783211037500003,
+        -29.37280027089844,
+        -1e-07
+      ],
+      "print_flip_x": false
     }
   },
   "clearance_checks": {
@@ -127,35 +211,231 @@
       "pcb_body_overlap_mm3": 0.0,
       "case_lid_overlap_mm3": 0.0,
       "hatch_lid_overlap_mm3": 0.0,
-      "stand_case_overlap_mm3": 0.0
+      "stand_case_overlap_mm3": 0.0,
+      "stand_lid_overlap_mm3": 0.0,
+      "stand_hatch_overlap_mm3": 0.0
     },
     "CYD_028": {
       "pcb_body_overlap_mm3": 0.0,
       "case_lid_overlap_mm3": 0.0,
       "hatch_lid_overlap_mm3": 0.0,
-      "stand_case_overlap_mm3": 0.0
+      "stand_case_overlap_mm3": 0.0,
+      "stand_lid_overlap_mm3": 0.0,
+      "stand_hatch_overlap_mm3": 0.0
     }
   },
-  "physical_validation": "Not performed; CS32 measurements unresolved",
-  "layer_check": {
-    "method": "Horizontal cross sections at 0.2 mm with 0.22 mm prior-layer overlap allowance",
-    "parts": [
-      "Front_CS32_024_reference",
-      "Rear_cover",
-      "Service_hatch",
-      "Desk_stand_65deg"
+  "orientation": {
+    "front_normal": [
+      0,
+      0.90630778703665,
+      0.42261826174069933
     ],
-    "floating_layer_islands": 0,
-    "scope": "Geometry only, not machine G-code simulation"
+    "screen_up": [
+      0,
+      -0.42261826174069933,
+      0.90630778703665
+    ],
+    "screen_tilt_above_horizontal_degrees": 65.0,
+    "front_elevation_degrees": 25.0,
+    "design_to_assembly": {
+      "CS32_024_reference": [
+        [
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          -0.42261826174069933,
+          -0.90630778703665,
+          1.2678547852220983
+        ],
+        [
+          0,
+          0.90630778703665,
+          -0.42261826174069933,
+          47.281113822237764
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ]
+      ],
+      "CYD_028": [
+        [
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          -0.42261826174069933,
+          -0.90630778703665,
+          0.0
+        ],
+        [
+          0,
+          0.90630778703665,
+          -0.42261826174069933,
+          50.000037183347715
+        ],
+        [
+          0,
+          0,
+          0,
+          1
+        ]
+      ]
+    }
   },
-  "3mf_roundtrip": {
-    "assemblies": 2,
-    "objects_per_assembly": 4,
-    "bounds_mm": [
-      214,
-      148,
-      34
+  "brand_inlay_position_in_front_print_mm": {
+    "CS32_024_reference": [
+      25.216789,
+      4.6272,
+      0.0
     ],
-    "all_meshes_closed": true
+    "CYD_028": [
+      31.216789,
+      7.6272,
+      0.0
+    ]
+  },
+  "physical_validation": "Not performed; CS32 measurements unresolved",
+  "independent_verification": {
+    "assemblies": {
+      "CS32_024_reference": {
+        "valid_step": true,
+        "front_face_area_mm2": 3809.14,
+        "front_normal": [
+          0.0,
+          0.906308,
+          0.422618
+        ],
+        "screen_up": [
+          0.0,
+          -0.422618,
+          0.906308
+        ],
+        "usb_side_from_front": "left",
+        "usb_aperture_open": true,
+        "opposite_wall_closed": true
+      },
+      "CYD_028": {
+        "valid_step": true,
+        "front_face_area_mm2": 4492.02,
+        "front_normal": [
+          0.0,
+          0.906308,
+          0.422618
+        ],
+        "screen_up": [
+          0.0,
+          -0.422618,
+          0.906308
+        ],
+        "usb_side_from_front": "left",
+        "usb_aperture_open": true,
+        "opposite_wall_closed": true
+      }
+    },
+    "print_layouts": {
+      "CS32_024_reference": {
+        "objects": [
+          "Front_CS32_024_reference",
+          "Rear_cover_CS32_024_reference",
+          "Desk_stand_65deg",
+          "Service_hatch"
+        ],
+        "bounds_mm": [
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            190.0,
+            144.0,
+            25.0
+          ]
+        ],
+        "size_mm": [
+          190.0,
+          144.0,
+          25.0
+        ],
+        "closed_meshes": true,
+        "nonoverlapping": true
+      },
+      "CYD_028": {
+        "objects": [
+          "Front_CYD_028",
+          "Rear_cover_CYD_028",
+          "Desk_stand_65deg",
+          "Service_hatch"
+        ],
+        "bounds_mm": [
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            214.0,
+            150.0,
+            25.0
+          ]
+        ],
+        "size_mm": [
+          214.0,
+          150.0,
+          25.0
+        ],
+        "closed_meshes": true,
+        "nonoverlapping": true
+      }
+    },
+    "layer_checks": {
+      "Front_CS32_024_reference": {
+        "layer_height_mm": 0.2,
+        "lateral_allowance_mm": 0.22,
+        "sections": 96,
+        "floating_start_islands": 0
+      },
+      "Front_CYD_028": {
+        "layer_height_mm": 0.2,
+        "lateral_allowance_mm": 0.22,
+        "sections": 96,
+        "floating_start_islands": 0
+      },
+      "Rear_cover_CS32_024_reference": {
+        "layer_height_mm": 0.2,
+        "lateral_allowance_mm": 0.22,
+        "sections": 31,
+        "floating_start_islands": 0
+      },
+      "Rear_cover_CYD_028": {
+        "layer_height_mm": 0.2,
+        "lateral_allowance_mm": 0.22,
+        "sections": 31,
+        "floating_start_islands": 0
+      },
+      "Service_hatch": {
+        "layer_height_mm": 0.2,
+        "lateral_allowance_mm": 0.22,
+        "sections": 16,
+        "floating_start_islands": 0
+      },
+      "Desk_stand_65deg": {
+        "layer_height_mm": 0.2,
+        "lateral_allowance_mm": 0.22,
+        "sections": 125,
+        "floating_start_islands": 0
+      }
+    },
+    "limits": "Digital checks only. Layer sampling is not printer simulation; physical CS32 dimensions, fit and touch stability remain unverified."
   }
 }
